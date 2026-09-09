@@ -225,9 +225,9 @@ class _CoordinatorAssignmentsContentState
 
   // ─── Top Bar ───
   Widget _buildTopBar(BuildContext context) {
-    return Container(
-      color: Colors.white,
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      borderRadius: 0,
       child: Row(
         children: [
           Column(
@@ -303,23 +303,19 @@ class _CoordinatorAssignmentsContentState
   // ─── Table Container ───
   Widget _buildTable(BuildContext context) {
     if (_isLoading) {
-      return Container(
+      return SizedBox(
         height: 180,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+        child: GlassCard(
+          padding: EdgeInsets.zero,
+          borderRadius: 18,
+          child: const Center(child: CircularProgressIndicator()),
         ),
-        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final tableWidth = constraints.maxWidth < 960 ? 960.0 : constraints.maxWidth;

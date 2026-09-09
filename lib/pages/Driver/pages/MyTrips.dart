@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // === My trips page: filterable list of driver trip requests ===
 class MyTripsPage extends StatefulWidget {
@@ -11,13 +12,13 @@ class MyTripsPage extends StatefulWidget {
 }
 
 class _MyTripsPageState extends State<MyTripsPage> {
-  static const _green = Color(0xFF0B8F5A);
-  static const _greenDark = Color(0xFF087448);
-  static const _greenSoft = Color(0xFFE8F7F0);
-  static const _ink = Color(0xFF19332A);
-  static const _muted = Color(0xFF71827B);
-  static const _line = Color(0xFFDCE9E2);
-  static const _background = Color(0xFFF7FAF8);
+  static const _green = AppColors.primary;
+  static const _greenDark = AppColors.primaryDark;
+  static const _greenSoft = AppColors.mint;
+  static const _ink = AppColors.navy;
+  static const _muted = AppColors.mutedDark;
+  static const _line = AppColors.border;
+  static const _background = AppColors.background;
 
   static const _filters = ['All', 'Pending', 'Approved', 'Denied'];
 
@@ -194,10 +195,10 @@ class _MyTripsPageState extends State<MyTripsPage> {
         Scaffold(
           backgroundColor: _background,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.glassFill,
             foregroundColor: _ink,
             elevation: 0,
-            surfaceTintColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -227,9 +228,10 @@ class _MyTripsPageState extends State<MyTripsPage> {
               ],
             ),
           ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
+          body: DriverShellAtmosphere(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
                   children: [
                     _buildFilterTabs(),
                     Expanded(
@@ -251,7 +253,8 @@ class _MyTripsPageState extends State<MyTripsPage> {
                             ),
                     ),
                   ],
-                ),
+                    ),
+                  ),
         ),
         if (_isOpeningTicket)
           Positioned.fill(
@@ -299,19 +302,22 @@ class _MyTripsPageState extends State<MyTripsPage> {
 
   // --- Filter tabs: select which trip statuses are visible ---
   Widget _buildFilterTabs() {
-    return Container(
-      color: Colors.white,
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            for (final filter in _filters) ...[
-              _buildFilterTab(filter),
-              const SizedBox(width: 8),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 16,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Row(
+            children: [
+              for (final filter in _filters) ...[
+                _buildFilterTab(filter),
+                const SizedBox(width: 8),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -341,13 +347,9 @@ class _MyTripsPageState extends State<MyTripsPage> {
     return InkWell(
       onTap: () => _showTripDetails(trip),
       borderRadius: BorderRadius.circular(14),
-      child: Container(
+      child: GlassCard(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
-        ),
+        borderRadius: 16,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

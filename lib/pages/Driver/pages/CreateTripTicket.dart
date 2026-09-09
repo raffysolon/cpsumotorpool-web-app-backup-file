@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/assignment_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // === Create trip ticket page: multi-step driver request form ===
 class CreateTripTicket extends StatefulWidget {
@@ -12,13 +13,13 @@ class CreateTripTicket extends StatefulWidget {
 
 class _CreateTripTicketState extends State<CreateTripTicket> {
   // --- Theme constants: colors used by the trip ticket form ---
-  static const _green = Color(0xFF0B8F5A);
-  static const _greenDark = Color(0xFF087448);
-  static const _greenSoft = Color(0xFFE8F7F0);
-  static const _ink = Color(0xFF19332A);
-  static const _muted = Color(0xFF71827B);
-  static const _line = Color(0xFFDCE9E2);
-  static const _background = Color(0xFFF7FAF8);
+  static const _green = AppColors.primary;
+  static const _greenDark = AppColors.primaryDark;
+  static const _greenSoft = AppColors.mint;
+  static const _ink = AppColors.navy;
+  static const _muted = AppColors.mutedDark;
+  static const _line = AppColors.border;
+  static const _background = AppColors.background;
 
   final _formKey = GlobalKey<FormState>();
   final _originController = TextEditingController();
@@ -101,8 +102,9 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
   // --- Page layout: step indicator, current form step, and actions ---
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
-      body: LayoutBuilder(
+      backgroundColor: AppColors.background,
+      body: DriverShellAtmosphere(
+        child: LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 720;
           return SingleChildScrollView(
@@ -128,6 +130,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
             ),
           );
         },
+        ),
       ),
     );
   }

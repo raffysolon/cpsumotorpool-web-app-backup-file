@@ -68,9 +68,9 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          color: Colors.white,
+        GlassCard(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+          borderRadius: 0,
           child: Row(
             children: [
               Column(
@@ -98,8 +98,6 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
               ),
               const SizedBox(width: 10),
               CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.primary,
                 child: const Icon(Icons.person, color: Colors.white, size: 20),
               ),
             ],
@@ -159,12 +157,9 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
       letterSpacing: 0.8,
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: Column(
         children: [
           // ─── Table Header Row ───

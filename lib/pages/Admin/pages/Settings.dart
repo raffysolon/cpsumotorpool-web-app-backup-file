@@ -89,8 +89,7 @@ class _SettingsState extends State<Settings> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Settings', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 24),
+                const PageHeader(title: 'Settings'),
                 _section('Admin Account', [
                   _readOnly('Name', _name),
                   _readOnly('Email', _email),
@@ -122,25 +121,50 @@ class _SettingsState extends State<Settings> {
     );
   }
 
-  Widget _section(String title, List<Widget> children) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _section(String title, List<Widget> children) => GlassCard(
+        padding: const EdgeInsets.all(24),
+        borderRadius: 18,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 18),
             ...children.expand((child) => [child, const SizedBox(height: 14)]),
           ]),
-        ),
       );
 
   Widget _readOnly(String label, String value) => InputDecorator(
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+            labelText: label,
+            filled: true,
+            fillColor: const Color(0xFFFAFBFC),
+            labelStyle: const TextStyle(color: AppColors.mutedDark),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+          ),
         child: Text(value),
       );
 
   Widget _passwordField(String label, TextEditingController controller) => TextField(
         controller: controller,
         obscureText: true,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: const Color(0xFFFAFBFC),
+        labelStyle: const TextStyle(color: AppColors.mutedDark),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
       );
 }

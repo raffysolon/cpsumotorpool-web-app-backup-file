@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // === Trip history page: completed driver trip tickets ===
 class HistoryPage extends StatefulWidget {
@@ -12,13 +13,13 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   // --- Shared dashboard colors: use the same driver dashboard palette ---
-  static const _green = Color(0xFF0B8F5A);
-  static const _greenDark = Color(0xFF087448);
-  static const _greenSoft = Color(0xFFE8F7F0);
-  static const _ink = Color(0xFF19332A);
-  static const _muted = Color(0xFF71827B);
-  static const _line = Color(0xFFDCE9E2);
-  static const _background = Color(0xFFF7FAF8);
+  static const _green = AppColors.primary;
+  static const _greenDark = AppColors.primaryDark;
+  static const _greenSoft = AppColors.mint;
+  static const _ink = AppColors.navy;
+  static const _muted = AppColors.mutedDark;
+  static const _line = AppColors.border;
+  static const _background = AppColors.background;
 
   static const _dateRanges = ['All time', 'This month', 'Last 3 months'];
   String _selectedDateRange = 'All time';
@@ -99,32 +100,34 @@ class _HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.glassFill,
         foregroundColor: _ink,
         elevation: 0,
-        surfaceTintColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           'Trip History (${_trips.length})',
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: Column(
-        children: [
-          _buildDateRangeFilter(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _trips.isEmpty
-                ? _buildEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                    itemCount: _trips.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) =>
-                        _buildTripCard(_trips[index]),
-                  ),
-          ),
-        ],
+      body: DriverShellAtmosphere(
+        child: Column(
+          children: [
+            _buildDateRangeFilter(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _trips.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                      itemCount: _trips.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) =>
+                          _buildTripCard(_trips[index]),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -170,13 +173,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
   // --- Completed trip card: route, summary details, and ticket actions ---
   Widget _buildTripCard(Trip trip) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -53,18 +53,6 @@ class _DashboardState extends State<Dashboard> {
 
       final count = pendingTrips.length;
 
-      final notifications = pendingTrips.map<Map<String, String>>((trip) {
-        final origin = (trip['origin'] ?? 'Unknown').toString();
-        final destination = (trip['destination'] ?? 'Destination').toString();
-        final route = '$origin to $destination';
-        final submittedAt = (trip['created_at'] ?? '').toString();
-        return {
-          'title': 'New trip request',
-          'message': route,
-          'time': submittedAt.isEmpty ? 'Just now' : submittedAt,
-        };
-      }).toList();
-
       if (!mounted) return;
       setState(() {
         _pendingRequests = count;
@@ -133,10 +121,6 @@ class _DashboardState extends State<Dashboard> {
         _isLoadingStats = false;
       });
     }
-  }
-
-  void _showNotificationsDialog() {
-    AdminNotificationsController.instance.showNotificationsDialog(context);
   }
 
   @override
@@ -264,19 +248,9 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 18,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
+      borderRadius: 16,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

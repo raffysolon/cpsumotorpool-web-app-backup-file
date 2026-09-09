@@ -129,9 +129,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Widget _buildTopBar() {
-    return Container(
-      color: Colors.white,
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      borderRadius: 0,
       child: const Row(
         children: [
           Column(
@@ -159,9 +159,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
 
   Widget _buildTabs() {
     final isDriversTab = _tabController.index == 1;
-    return Container(
-      color: Colors.white,
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 28),
+      borderRadius: 0,
       child: Row(
         children: [
           Expanded(
@@ -294,12 +294,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       letterSpacing: .8,
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth < minWidth ? minWidth : constraints.maxWidth;
@@ -499,7 +496,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     final action = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.glassFill,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
           'Driver Details',

@@ -42,10 +42,10 @@ class _TripHistoryData {
     final driver = _map(json['driver']);
     final vehicle = _map(json['vehicle']);
     final passengers = json['passengers'] is List
-        ? (json['passengers'] as List)
-              .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
-              .toList()
+          ? (json['passengers'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
         : <Map<String, dynamic>>[];
 
     return _TripHistoryData(
@@ -328,9 +328,9 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   Widget _topBar() {
-    return Container(
-      color: Colors.white,
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      borderRadius: 0,
       child: Row(
         children: [
           const Column(
@@ -380,12 +380,9 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
         ),
       );
     }
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth < 850

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/AdminCreateTripTicket.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
@@ -6,7 +8,7 @@ import 'package:cpsumotorpooladmin/services/trip_service.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // APP SHELL - Shared layout wrapper for all pages
-// Contains: AppColors, AppShell, Sidebar, NavItem, PageHeader
+// Contains: AppColors, GlassCard, AppShell, Sidebar, NavItem, PageHeader
 // ═══════════════════════════════════════════════════════════════
 
 final ValueNotifier<int> adminTripTicketCountNotifier = ValueNotifier<int>(0);
@@ -142,18 +144,133 @@ class AdminNotificationsController {
   }
 }
 
-// ─── App Color Palette ───
+// ─── App Color Palette (aligned with login glass) ───
 class AppColors {
-  static const Color primary = Color(0xFF22C55E);
-  static const Color primaryDark = Color(0xFF16A34A);
-  static const Color navy = Color(0xFF1E293B);
+  static const Color primary = Color(0xFF1F8A3D);
+  static const Color primaryDark = Color(0xFF176E30);
+  static const Color brandDeep = Color(0xFF0F3D24);
+  static const Color mint = Color(0xFFB7E4C7);
+  static const Color navy = Color(0xFF1F2933);
   static const Color muted = Color(0xFF94A3B8);
-  static const Color mutedDark = Color(0xFF64748B);
-  static const Color background = Color(0xFFF8FAFC);
+  static const Color mutedDark = Color(0xFF6B7280);
+  static const Color background = Color(0xFFF3F8F4);
   static const Color border = Color(0xFFE2E8F0);
+  static const Color glassFill = Color(0xEBFFFFFF);
+  static const Color glassBorder = Color(0xB3FFFFFF);
   static const Color iconGreen2 = Color(0xFF4ADE80);
   static const Color iconGreen3 = Color(0xFF15803D);
   static const Color iconGreen4 = Color(0xFF166534);
+}
+
+// ─── Shared frosted glass surface (login-matched) ───
+class GlassCard extends StatelessWidget {
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.width,
+    this.borderRadius = 20,
+    this.blurSigma = 18,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final double? width;
+  final double borderRadius;
+  final double blurSigma;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: Container(
+          width: width,
+          padding: padding,
+          decoration: BoxDecoration(
+            color: AppColors.glassFill,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: AppColors.glassBorder),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brandDeep.withValues(alpha: 0.12),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _ShellAtmosphere extends StatelessWidget {
+  const _ShellAtmosphere({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF3F8F4),
+                Color(0xFFE8F5EC),
+                Color(0xFFF8FAFC),
+                Color(0xFFEAF6EE),
+              ],
+              stops: [0.0, 0.35, 0.7, 1.0],
+            ),
+          ),
+        ),
+        Positioned(
+          right: -90,
+          top: -70,
+          child: Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary.withValues(alpha: 0.08),
+            ),
+          ),
+        ),
+        Positioned(
+          left: -110,
+          bottom: -50,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.mint.withValues(alpha: 0.18),
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class DriverShellAtmosphere extends StatelessWidget {
+  const DriverShellAtmosphere({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShellAtmosphere(child: child);
+  }
 }
 
 // ─── App Shell (responsive layout: sidebar + content) ───
@@ -175,31 +292,33 @@ class AppShell extends StatelessWidget {
           return Scaffold(
             backgroundColor: AppColors.background,
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.glassFill,
               foregroundColor: AppColors.navy,
               elevation: 0,
-              surfaceTintColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
               title: const Text(
                 'MotorPool',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
             ),
             drawer: Drawer(
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.transparent,
               child: _Sidebar(currentRoute: currentRoute, compact: false),
             ),
-            body: child,
+            body: _ShellAtmosphere(child: child),
           );
         }
 
         // Desktop layout: fixed sidebar
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: Row(
-            children: [
-              _Sidebar(currentRoute: currentRoute, compact: rail),
-              Expanded(child: child),
-            ],
+          body: _ShellAtmosphere(
+            child: Row(
+              children: [
+                _Sidebar(currentRoute: currentRoute, compact: rail),
+                Expanded(child: child),
+              ],
+            ),
           ),
         );
       },
@@ -431,13 +550,18 @@ class _SidebarState extends State<_Sidebar> {
       ),
     ];
 
-    return Container(
-      width: compact ? 84 : 248,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: AppColors.border)),
-      ),
-      child: Column(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: compact ? 84 : 248,
+          decoration: BoxDecoration(
+            color: AppColors.glassFill,
+            border: Border(
+              right: BorderSide(color: AppColors.glassBorder),
+            ),
+          ),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
@@ -559,6 +683,8 @@ class _SidebarState extends State<_Sidebar> {
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }
@@ -584,27 +710,38 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = selected ? AppColors.primaryDark : AppColors.mutedDark;
+    final textColor = selected ? AppColors.primaryDark : AppColors.navy;
+
     final item = Material(
-      color: selected ? AppColors.primary : Colors.transparent,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 0 : 14,
             vertical: 11,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.28)
+                  : Colors.transparent,
+            ),
           ),
           child: compact
               ? Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      size: 22,
-                      color: selected ? Colors.white : AppColors.mutedDark,
-                    ),
+                    Icon(icon, size: 22, color: iconColor),
                     if (badge != null)
                       Positioned(
                         top: -4,
@@ -615,11 +752,7 @@ class _NavItem extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: selected ? Colors.white : AppColors.mutedDark,
-                    ),
+                    Icon(icon, size: 20, color: iconColor),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -627,10 +760,9 @@ class _NavItem extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: selected ? Colors.white : AppColors.navy,
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.w500,
+                          color: textColor,
                         ),
                       ),
                     ),
@@ -700,9 +832,16 @@ class AdminNotificationBell extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.glassFill,
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.glassBorder),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.brandDeep.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           clipBehavior: Clip.none,
@@ -806,8 +945,19 @@ class PageHeader extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.28),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: const Icon(Icons.person, color: Colors.white, size: 22),
             ),
@@ -852,20 +1002,9 @@ class PlaceholderPage extends StatelessWidget {
               children: [
                 PageHeader(title: title),
                 const SizedBox(height: 28),
-                Container(
-                  width: double.infinity,
+                GlassCard(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0D000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                  borderRadius: 16,
                   child: Text(
                     '$title content coming soon.',
                     style: const TextStyle(color: AppColors.mutedDark),

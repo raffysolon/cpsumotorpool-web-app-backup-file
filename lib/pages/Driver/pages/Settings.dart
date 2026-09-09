@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 class DriverSettings extends StatefulWidget {
   const DriverSettings({super.key});
@@ -113,21 +114,23 @@ class _DriverSettingsState extends State<DriverSettings> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAF8),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF19332A),
+        backgroundColor: AppColors.glassFill,
+        foregroundColor: AppColors.navy,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Driver Settings'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      body: DriverShellAtmosphere(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 const Text(
                   'Settings',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
@@ -167,7 +170,8 @@ class _DriverSettingsState extends State<DriverSettings> {
                     ),
                   ),
                 ]),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -175,27 +179,36 @@ class _DriverSettingsState extends State<DriverSettings> {
     );
   }
 
-  Widget _section(String title, List<Widget> children) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+  Widget _section(String title, List<Widget> children) => GlassCard(
+    padding: const EdgeInsets.all(24),
+    borderRadius: 18,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Text(
             title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 18),
           ...children.expand((child) => [child, const SizedBox(height: 14)]),
-        ],
-      ),
+      ],
     ),
   );
 
   Widget _readOnly(String label, String value) => InputDecorator(
     decoration: InputDecoration(
       labelText: label,
-      border: const OutlineInputBorder(),
+      filled: true,
+      fillColor: const Color(0xFFFAFBFC),
+      labelStyle: const TextStyle(color: AppColors.mutedDark),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
     ),
     child: Text(value),
   );
@@ -206,7 +219,17 @@ class _DriverSettingsState extends State<DriverSettings> {
         obscureText: true,
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: const Color(0xFFFAFBFC),
+          labelStyle: const TextStyle(color: AppColors.mutedDark),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          ),
         ),
       );
 }

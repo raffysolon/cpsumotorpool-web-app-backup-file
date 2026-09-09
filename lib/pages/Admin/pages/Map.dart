@@ -25,19 +25,9 @@ class MapPage extends StatelessWidget {
               children: [
                 const PageHeader(title: 'Map'),
                 const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0A000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
+                    GlassCard(
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      borderRadius: 20,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

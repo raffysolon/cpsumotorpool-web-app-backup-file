@@ -178,9 +178,9 @@ class _ActiveTripState extends State<ActiveTrip> {
   }
 
   Widget _buildTopBar() {
-    return Container(
-      color: Colors.white,
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      borderRadius: 0,
       child: Row(
         children: [
           const Column(
@@ -289,12 +289,9 @@ class _ActiveTripState extends State<ActiveTrip> {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final tableWidth = constraints.maxWidth < 720
@@ -497,10 +494,11 @@ class _TripTicketLoadingDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Card(
-        elevation: 8,
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        borderRadius: 16,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          padding: EdgeInsets.zero,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: const [

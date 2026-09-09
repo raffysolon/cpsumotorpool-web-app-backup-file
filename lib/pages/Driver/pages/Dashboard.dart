@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 import 'History.dart';
 import 'MyTrips.dart';
@@ -18,13 +19,12 @@ class DriverDashboard extends StatefulWidget {
 }
 
 class _DriverDashboardState extends State<DriverDashboard> {
-  static const _green = Color(0xFF0B8F5A);
-  static const _greenDark = Color(0xFF087448);
-  static const _greenSoft = Color(0xFFE8F7F0);
-  static const _ink = Color(0xFF19332A);
-  static const _muted = Color(0xFF71827B);
-  static const _line = Color(0xFFDCE9E2);
-  static const _background = Color(0xFFF7FAF8);
+  static const _green = AppColors.primary;
+  static const _greenDark = AppColors.primaryDark;
+  static const _greenSoft = Color(0xFFE8F5EC);
+  static const _ink = AppColors.navy;
+  static const _muted = AppColors.mutedDark;
+  static const _line = AppColors.border;
 
   bool _isLoadingActiveTrip = true;
   bool _isLoadingTripCounts = true;
@@ -345,28 +345,23 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   Widget _buildCurrentActiveTripCard() {
     if (_isLoadingActiveTrip) {
-      return Container(
+      return ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 248),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
+        child: GlassCard(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 18,
+          child: const Center(child: CircularProgressIndicator()),
         ),
-        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_activeTrip == null) {
-      return Container(
+      return ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 248),
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
-        ),
-        child: const Center(
+        child: GlassCard(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+          borderRadius: 18,
+          child: const Center(
           child: Text(
             'No active trip right now',
             style: TextStyle(
@@ -374,6 +369,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
+          ),
           ),
         ),
       );
@@ -388,14 +384,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
     final route = _routeText(trip);
     final actionLabel = _activeActionLabel(trip);
 
-    return Container(
-      constraints: const BoxConstraints(minHeight: 248),
+    return GlassCard(
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
-      ),
+      borderRadius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -473,7 +464,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: _background, body: _buildContent());
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: DriverShellAtmosphere(child: _buildContent()),
+    );
   }
 
   Widget _buildContent() {
@@ -717,9 +711,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
         decoration: BoxDecoration(
           color: _green,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x220B8F5A),
+          boxShadow: [
+              BoxShadow(
+                color: AppColors.brandDeep.withValues(alpha: 0.18),
               blurRadius: 15,
               offset: Offset(0, 7),
             ),
