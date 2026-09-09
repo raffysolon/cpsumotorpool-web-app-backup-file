@@ -45,15 +45,66 @@ const _mockLogs = [
 ];
 
 // ─── Main Content Layout ───
-class _SyncLogsContent extends StatelessWidget {
+class _SyncLogsContent extends StatefulWidget {
   const _SyncLogsContent();
+
+  @override
+  State<_SyncLogsContent> createState() => _SyncLogsContentState();
+}
+
+class _SyncLogsContentState extends State<_SyncLogsContent> {
+  @override
+  void initState() {
+    super.initState();
+    AdminNotificationsController.instance.refresh();
+  }
+
+  void _showNotifications(BuildContext context) {
+    AdminNotificationsController.instance.showNotificationsDialog(context);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTopBar(),
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+          child: Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('Sync Logs',
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.navy)),
+                  SizedBox(height: 2),
+                  Text('Province of Negros Occidental — Motorpool Division',
+                      style: TextStyle(fontSize: 13, color: AppColors.mutedDark)),
+                ],
+              ),
+              const Spacer(),
+              ValueListenableBuilder<int>(
+                valueListenable: AdminNotificationsController.instance.unreadCount,
+                builder: (context, count, _) {
+                  return AdminNotificationBell(
+                    count: count,
+                    onTap: () => _showNotifications(context),
+                  );
+                },
+              ),
+              const SizedBox(width: 10),
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary,
+                child: const Icon(Icons.person, color: Colors.white, size: 20),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(28),
@@ -68,60 +119,6 @@ class _SyncLogsContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  // ─── Top Bar (Title + Notification + Profile) ───
-  Widget _buildTopBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('Sync Logs',
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.navy)),
-              SizedBox(height: 2),
-              Text('Province of Negros Occidental — Motorpool Division',
-                  style: TextStyle(fontSize: 13, color: AppColors.mutedDark)),
-            ],
-          ),
-          const Spacer(),
-          // Notification bell
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded,
-                    size: 24, color: AppColors.navy),
-                onPressed: () {},
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                      color: Colors.amber, shape: BoxShape.circle),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 6),
-          // Profile avatar
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: const Icon(Icons.person, color: Colors.white, size: 20),
-          ),
-        ],
-      ),
     );
   }
 

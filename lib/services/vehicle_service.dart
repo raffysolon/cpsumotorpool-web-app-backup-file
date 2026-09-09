@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
@@ -42,15 +43,21 @@ class VehicleService {
     required String name,
     required String plateNo,
   }) async {
+    final payload = {
+      'name': name,
+      'plate_no': plateNo,
+    };
+
+    debugPrint('VehicleService.createVehicle(): POST $baseUrl/vehicles');
+    debugPrint('VehicleService.createVehicle(): payload=$payload');
+
     final response = await http.post(
       Uri.parse('$baseUrl/vehicles'),
       headers: await _headers(),
-      body: jsonEncode({
-        'name': name,
-        'plate_no': plateNo,
-      }),
+      body: jsonEncode(payload),
     );
 
+    debugPrint('VehicleService.createVehicle(): status=${response.statusCode} body=${response.body}');
     return _parseResponse(response);
   }
 

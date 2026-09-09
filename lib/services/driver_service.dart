@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
@@ -45,18 +46,24 @@ class DriverService {
     required String licenseNumber,
     String? password,
   }) async {
+    final payload = {
+      'name': name,
+      'email': email,
+      'contact_number': contactNumber,
+      'license_number': licenseNumber,
+      if (password != null && password.isNotEmpty) 'password': password,
+    };
+
+    debugPrint('DriverService.createDriver(): POST $baseUrl/drivers');
+    debugPrint('DriverService.createDriver(): payload=$payload');
+
     final response = await http.post(
       Uri.parse('$baseUrl/drivers'),
       headers: await _headers(),
-      body: jsonEncode({
-        'name': name,
-        'email': email,
-        'contact_number': contactNumber,
-        'license_number': licenseNumber,
-        ...?(password == null ? null : {'password': password}),
-      }),
+      body: jsonEncode(payload),
     );
 
+    debugPrint('DriverService.createDriver(): status=${response.statusCode} body=${response.body}');
     return _parseResponse(response);
   }
 

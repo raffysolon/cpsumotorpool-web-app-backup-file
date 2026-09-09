@@ -78,14 +78,13 @@ class _CoordinatorAssignmentsContentState
   List<_AssignmentOption> _drivers = const [];
   List<_AssignmentOption> _vehicles = const [];
   bool _isLoading = true;
-  String? _notificationMessage;
-  bool _notificationIsError = false;
   Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
     _displayedAssignments = [];
+    AdminNotificationsController.instance.refresh();
     _loadData();
   }
 
@@ -118,8 +117,11 @@ class _CoordinatorAssignmentsContentState
       throw Exception('Authentication token not found');
     }
 
+    final availableResource = resource == 'drivers'
+        ? 'available-drivers'
+        : 'available-vehicles';
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8000/api/$resource'),
+      Uri.parse('http://127.0.0.1:8000/api/$availableResource'),
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
@@ -232,7 +234,7 @@ class _CoordinatorAssignmentsContentState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               Text(
-                'Campus Coordinator Assignments',
+                'Campus Administrator Assignments',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -247,39 +249,16 @@ class _CoordinatorAssignmentsContentState
             ],
           ),
           const Spacer(),
-          // Notification bell and compact status popup
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded,
-                    size: 24, color: AppColors.navy),
-                onPressed: () {},
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Colors.amber,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              if (_notificationMessage != null)
-                Positioned(
-                  right: 40,
-                  top: 0,
-                  child: _NotificationPopup(
-                    message: _notificationMessage!,
-                    isError: _notificationIsError,
-                  ),
-                ),
-            ],
+          ValueListenableBuilder<int>(
+            valueListenable: AdminNotificationsController.instance.unreadCount,
+            builder: (context, count, _) {
+              return AdminNotificationBell(
+                count: count,
+                onTap: () => AdminNotificationsController.instance.showNotificationsDialog(context),
+              );
+            },
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 10),
           // Profile avatar
           CircleAvatar(
             radius: 18,
@@ -384,7 +363,7 @@ class _CoordinatorAssignmentsContentState
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: const [
-          Expanded(flex: 4, child: Text('CAMPUS / COORDINATOR', style: style)),
+          Expanded(flex: 4, child: Text('CAMPUS / ADMINISTRATOR', style: style)),
           Expanded(flex: 3, child: Text('ASSIGNED DRIVER', style: style)),
           Expanded(flex: 4, child: Text('ASSIGNED VEHICLE', style: style)),
           SizedBox(width: 120),
@@ -478,8 +457,24 @@ class _CoordinatorAssignmentsContentState
       context: context,
       builder: (dialogContext) => _AssignmentDialog(
         assignment: assignment,
-        drivers: _drivers,
-        vehicles: _vehicles,
+        drivers: [
+          ..._drivers,
+          if (assignment != null &&
+              !_drivers.any((driver) => driver.id == assignment.driverId))
+            _AssignmentOption(
+              id: assignment.driverId,
+              name: assignment.driverName,
+            ),
+        ],
+        vehicles: [
+          ..._vehicles,
+          if (assignment != null &&
+              !_vehicles.any((vehicle) => vehicle.id == assignment.vehicleId))
+            _AssignmentOption(
+              id: assignment.vehicleId,
+              name: assignment.vehicleName,
+            ),
+        ],
         onSave: (campus, coordinatorName, driverId, vehicleId) async {
           try {
             if (assignment != null) {
@@ -561,66 +556,10 @@ class _CoordinatorAssignmentsContentState
 
   void _showNotification(String message, {bool isError = false}) {
     _notificationTimer?.cancel();
-    setState(() {
-      _notificationMessage = message;
-      _notificationIsError = isError;
-    });
-    _notificationTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() => _notificationMessage = null);
-      }
-    });
-  }
-}
-
-class _NotificationPopup extends StatelessWidget {
-  const _NotificationPopup({required this.message, required this.isError});
-
-  final String message;
-  final bool isError;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x18000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_outline,
-              color: isError ? Colors.red : AppColors.primary,
-              size: 17,
-            ),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                message,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
       ),
     );
   }
@@ -751,7 +690,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
 
               // Coordinator Name
               const Text(
-                'Coordinator Name',
+                'Administrator Name',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

@@ -451,6 +451,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       builder: (_) => _VehicleDialog(
         vehicle: vehicle,
         onSave: (name, plate) async {
+          debugPrint('VehiclesDriversPage: saving vehicle => name=$name plate=$plate');
           if (vehicle == null) {
             await VehicleService.createVehicle(name: name, plateNo: plate);
           } else {
@@ -766,6 +767,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     required String licenseNumber,
     required String password,
   }) async {
+    debugPrint('VehiclesDriversPage: creating driver => name=$name email=$email contact=$contactNumber license=$licenseNumber');
     await DriverService.createDriver(
       name: name,
       email: email,

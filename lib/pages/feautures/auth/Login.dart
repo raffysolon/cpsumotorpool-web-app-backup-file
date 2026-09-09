@@ -17,6 +17,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _passwordFocusNode = FocusNode();
+  final _passwordVisibilityFocusNode = FocusNode(canRequestFocus: false);
   bool _rememberMe = true;
   bool _obscurePassword = true;
   bool _emailFocused = false;
@@ -34,7 +36,19 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _passwordFocusNode.dispose();
+    _passwordVisibilityFocusNode.dispose();
     super.dispose();
+  }
+
+  void _restorePasswordFocus({TextSelection? selection}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _passwordFocusNode.requestFocus();
+      if (selection != null) {
+        _passwordCtrl.selection = selection;
+      }
+    });
   }
 
   Future<void> _handleLogin() async {
@@ -65,9 +79,9 @@ class _LoginPageState extends State<LoginPage> {
       );
     } catch (_) {
       if (!mounted) return;
-
       setState(() => _isLoading = false);
       _showLoginSnackBar(success: false);
+      _restorePasswordFocus();
     } finally {
       if (mounted && _isLoading) {
         setState(() => _isLoading = false);
@@ -285,10 +299,12 @@ class _LoginPageState extends State<LoginPage> {
           const SizedBox(height: 8),
           _buildTextField(
             controller: _passwordCtrl,
+            focusNode: _passwordFocusNode,
             focused: _passwordFocused,
             onFocusChange: (v) => setState(() => _passwordFocused = v),
             obscure: _obscurePassword,
             suffixIcon: IconButton(
+              focusNode: _passwordVisibilityFocusNode,
               icon: Icon(
                 _obscurePassword
                     ? Icons.visibility_off_outlined
@@ -297,7 +313,9 @@ class _LoginPageState extends State<LoginPage> {
                 size: 20,
               ),
               onPressed: () {
+                final selection = _passwordCtrl.selection;
                 setState(() => _obscurePassword = !_obscurePassword);
+                _restorePasswordFocus(selection: selection);
               },
             ),
           ),
@@ -324,6 +342,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildTextField({
     required TextEditingController controller,
+    FocusNode? focusNode,
     required bool focused,
     required ValueChanged<bool> onFocusChange,
     TextInputType keyboardType = TextInputType.text,
@@ -348,6 +367,7 @@ class _LoginPageState extends State<LoginPage> {
         onFocusChange: onFocusChange,
         child: TextField(
           controller: controller,
+          focusNode: focusNode,
           obscureText: obscure,
           keyboardType: keyboardType,
           cursorColor: _brandGreen,
@@ -414,47 +434,23 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ],
     );
-    final forgotPassword = TextButton(
-      onPressed: () {},
-      style: TextButton.styleFrom(
-        foregroundColor: _brandGreen,
-        padding: EdgeInsets.zero,
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: const Text(
-        'Forgot password?',
-        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-      ),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 360) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              rememberMe,
-              Align(alignment: Alignment.centerRight, child: forgotPassword),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            rememberMe,
-            const Spacer(),
-            forgotPassword,
-          ],
-        );
-      },
-    );
+    return rememberMe;
   }
 
   Widget _buildLoginButton() {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 48,
+      height: 50,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: _brandGreen.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         style: ButtonStyle(
@@ -466,12 +462,13 @@ class _LoginPageState extends State<LoginPage> {
             return _brandGreen;
           }),
           foregroundColor: const WidgetStatePropertyAll(Colors.white),
-          elevation: WidgetStateProperty.resolveWith((states) {
-            return states.contains(WidgetState.hovered) ? 4 : 0;
-          }),
-          shadowColor: const WidgetStatePropertyAll(Color(0x331F8A3D)),
+          elevation: const WidgetStatePropertyAll(0),
+          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 18),
           ),
         ),
         child: _isLoading
@@ -479,30 +476,38 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 14,
-                    height: 14,
+                    width: 15,
+                    height: 15,
                     child: CircularProgressIndicator(
                       color: Colors.white,
-                      strokeWidth: 2,
+                      strokeWidth: 2.2,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: 10),
                   Text(
-                    'Verifying...',
+                    'VERIFYING...',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
                     ),
                   ),
                 ],
               )
-            : const Text(
-                'LOG IN',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
+            : const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_open_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'LOG IN',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
       ),
     );

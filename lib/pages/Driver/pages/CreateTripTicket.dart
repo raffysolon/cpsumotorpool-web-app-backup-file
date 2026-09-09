@@ -21,7 +21,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
   static const _background = Color(0xFFF7FAF8);
 
   final _formKey = GlobalKey<FormState>();
-  final _originController = TextEditingController(text: 'CPSU SAN CARLOS');
+  final _originController = TextEditingController();
   final _destinationController = TextEditingController();
   final _purposeController = TextEditingController();
 
@@ -32,16 +32,17 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     'CPSU HIMAMAYLAN',
   ];
 
-
-
   int _step = 0;
   bool _isLoadingAssignment = true;
   bool _isSubmitting = false;
   int? _vehicleId;
   String? _vehicleDisplayName;
-  DateTime _departureDate = DateTime(2027, 8, 25);
-  TimeOfDay _departureTime = const TimeOfDay(hour: 8, minute: 24);
-  final List<Map<String, String>> _passengers = []; // Changed to store name and designation
+  DateTime _departureDate = DateTime.now();
+  TimeOfDay _departureTime = TimeOfDay.fromDateTime(DateTime.now());
+  DateTime? _returnDate;
+  TimeOfDay? _returnTime;
+  final List<Map<String, String>> _passengers =
+      []; // Changed to store name and designation
 
   @override
   void initState() {
@@ -54,13 +55,20 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
       final assignment = await AssignmentService.getMyAssignment();
       if (!mounted) return;
       final vehicle = assignment?['vehicle'];
-      final vehicleName = vehicle is Map ? vehicle['name']?.toString() ?? '' : '';
-      final plateNo = vehicle is Map ? vehicle['plate_no']?.toString() ?? '' : '';
+      final vehicleName = vehicle is Map
+          ? vehicle['name']?.toString() ?? ''
+          : '';
+      final plateNo = vehicle is Map
+          ? vehicle['plate_no']?.toString() ?? ''
+          : '';
       setState(() {
-        _vehicleId = _toInt(assignment?['vehicle_id'] ?? (vehicle is Map ? vehicle['id'] : null));
-        _vehicleDisplayName = [vehicleName, plateNo]
-            .where((value) => value.isNotEmpty)
-            .join(' — ');
+        _vehicleId = _toInt(
+          assignment?['vehicle_id'] ?? (vehicle is Map ? vehicle['id'] : null),
+        );
+        _vehicleDisplayName = [
+          vehicleName,
+          plateNo,
+        ].where((value) => value.isNotEmpty).join(' — ');
         _isLoadingAssignment = false;
       });
     } catch (_) {
@@ -168,10 +176,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
 
   Widget _buildProgress(bool narrow) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: narrow ? 12 : 32,
-        vertical: 18,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: narrow ? 12 : 32, vertical: 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -181,7 +186,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           ? Column(
               children: [
                 _buildCompactStep(0, 'Trip Details', Icons.edit_note_rounded),
-                _buildCompactStep(1, 'Passengers', Icons.people_outline_rounded),
+                _buildCompactStep(
+                  1,
+                  'Passengers',
+                  Icons.people_outline_rounded,
+                ),
                 _buildCompactStep(2, 'Review', Icons.fact_check_outlined),
               ],
             )
@@ -189,7 +198,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
               children: [
                 _buildStepIndicator(0, 'Trip Details', Icons.edit_note_rounded),
                 _buildProgressLine(0),
-                _buildStepIndicator(1, 'Passengers', Icons.people_outline_rounded),
+                _buildStepIndicator(
+                  1,
+                  'Passengers',
+                  Icons.people_outline_rounded,
+                ),
                 _buildProgressLine(1),
                 _buildStepIndicator(2, 'Review', Icons.fact_check_outlined),
               ],
@@ -226,7 +239,9 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
             style: TextStyle(
               color: color,
               fontSize: 12,
-              fontWeight: active || complete ? FontWeight.w800 : FontWeight.w500,
+              fontWeight: active || complete
+                  ? FontWeight.w800
+                  : FontWeight.w500,
             ),
           ),
         ],
@@ -263,7 +278,9 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: active || complete ? FontWeight.w800 : FontWeight.w500,
+              fontWeight: active || complete
+                  ? FontWeight.w800
+                  : FontWeight.w500,
             ),
           ),
         ],
@@ -348,6 +365,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
               onDateChanged: (value) => setState(() => _departureDate = value),
               onTimeChanged: (value) => setState(() => _departureTime = value),
             ),
+            _buildOptionalReturnField(),
             const SizedBox(height: 14),
             _buildPrimaryButton('Continue to Passengers', _nextStep),
           ],
@@ -406,7 +424,12 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           const SizedBox(height: 18),
           Row(
             children: [
-              Expanded(child: _buildSecondaryButton('Back', () => setState(() => _step = 0))),
+              Expanded(
+                child: _buildSecondaryButton(
+                  'Back',
+                  () => setState(() => _step = 0),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(child: _buildPrimaryButton('Review Ticket', _nextStep)),
             ],
@@ -452,10 +475,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       designation,
-                      style: const TextStyle(
-                        color: _muted,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: _muted, fontSize: 12),
                     ),
                   ),
               ],
@@ -464,7 +484,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           IconButton(
             tooltip: 'Remove passenger',
             onPressed: () => setState(() => _passengers.removeAt(index)),
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+            icon: const Icon(
+              Icons.delete_outline,
+              color: Colors.redAccent,
+              size: 20,
+            ),
           ),
         ],
       ),
@@ -479,49 +503,86 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         children: [
           _buildReviewSection('Trip Information', [
             _reviewRow('Vehicle', _vehicleDisplayName ?? ''),
-            _reviewRow('Route', '${_originController.text} to ${_destinationController.text}'),
+            _reviewRow(
+              'Route',
+              '${_originController.text} to ${_destinationController.text}',
+            ),
             _reviewRow('Purpose', _purposeController.text),
-            _reviewRow('Departure', '${_formatDate(_departureDate)} at ${_formatTime(_departureTime)}'),
+            _reviewRow(
+              'Departure',
+              '${_formatDate(_departureDate)} at ${_formatTime(_departureTime)}',
+            ),
+            _reviewRow(
+              'Return',
+              _returnDate == null || _returnTime == null
+                  ? 'To be confirmed'
+                  : '${_formatDate(_returnDate!)} at ${_formatTime(_returnTime!)}',
+            ),
           ]),
           const SizedBox(height: 16),
           _buildReviewSection(
             'Passengers (${_passengers.length})',
             _passengers.isEmpty
-                ? [const Text('No passengers added.', style: TextStyle(color: _muted, fontSize: 13))]
-                : _passengers
-                    .map((passenger) {
-                      final name = passenger['name'] ?? '';
-                      final designation = passenger['designation'] ?? '';
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.person_outline, color: _green, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(name, style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
-                                  if (designation.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Text(designation, style: const TextStyle(color: _muted, fontSize: 12)),
+                ? [
+                    const Text(
+                      'No passengers added.',
+                      style: TextStyle(color: _muted, fontSize: 13),
+                    ),
+                  ]
+                : _passengers.map((passenger) {
+                    final name = passenger['name'] ?? '';
+                    final designation = passenger['designation'] ?? '';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.person_outline,
+                            color: _green,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: _ink,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (designation.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      designation,
+                                      style: const TextStyle(
+                                        color: _muted,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                ],
-                              ),
+                                  ),
+                              ],
                             ),
-                          ],
-                        ),
-                      );
-                    })
-                    .toList(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
           ),
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _buildSecondaryButton('Back', () => setState(() => _step = 1))),
+              Expanded(
+                child: _buildSecondaryButton(
+                  'Back',
+                  () => setState(() => _step = 1),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildPrimaryButton(
@@ -536,7 +597,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     );
   }
 
-  Widget _buildPanel({required String title, required String subtitle, required Widget child}) {
+  Widget _buildPanel({
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
@@ -574,9 +639,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
 
   Widget _buildResponsiveFields(bool narrow, Widget first, Widget second) {
     if (narrow) {
-      return Column(
-        children: [first, second],
-      );
+      return Column(children: [first, second]);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,7 +692,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: 'Vehicle',
-          prefixIcon: const Icon(Icons.directions_car_outlined, color: _muted, size: 19),
+          prefixIcon: const Icon(
+            Icons.directions_car_outlined,
+            color: _muted,
+            size: 19,
+          ),
           filled: true,
           fillColor: const Color(0xFFEFF2F0),
           border: OutlineInputBorder(
@@ -663,10 +730,8 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         initialValue: value,
         items: options
             .map(
-              (option) => DropdownMenuItem<String>(
-                value: option,
-                child: Text(option),
-              ),
+              (option) =>
+                  DropdownMenuItem<String>(value: option, child: Text(option)),
             )
             .toList(),
         onChanged: onChanged,
@@ -708,8 +773,16 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
-            prefixIcon: const Icon(Icons.calendar_month_outlined, color: _green, size: 19),
-            suffixIcon: const Icon(Icons.access_time_rounded, color: _green, size: 19),
+            prefixIcon: const Icon(
+              Icons.calendar_month_outlined,
+              color: _green,
+              size: 19,
+            ),
+            suffixIcon: const Icon(
+              Icons.access_time_rounded,
+              color: _green,
+              size: 19,
+            ),
             filled: true,
             fillColor: _background,
             border: OutlineInputBorder(
@@ -723,6 +796,53 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           ),
           child: Text(
             '${_formatDate(date)}   ${_formatTime(time)}',
+            style: const TextStyle(color: _ink, fontSize: 13),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionalReturnField() {
+    final hasReturn = _returnDate != null && _returnTime != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 17),
+      child: InkWell(
+        onTap: _pickReturnDateAndTime,
+        borderRadius: BorderRadius.circular(9),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: 'Return Departure (Optional)',
+            prefixIcon: const Icon(
+              Icons.keyboard_return_rounded,
+              color: _green,
+              size: 19,
+            ),
+            suffixIcon: hasReturn
+                ? IconButton(
+                    tooltip: 'Clear return schedule',
+                    icon: const Icon(Icons.clear, color: _green, size: 19),
+                    onPressed: () => setState(() {
+                      _returnDate = null;
+                      _returnTime = null;
+                    }),
+                  )
+                : const Icon(Icons.add_circle_outline, color: _green, size: 19),
+            filled: true,
+            fillColor: _background,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(9),
+              borderSide: const BorderSide(color: _line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(9),
+              borderSide: const BorderSide(color: _line),
+            ),
+          ),
+          child: Text(
+            hasReturn
+                ? '${_formatDate(_returnDate!)}   ${_formatTime(_returnTime!)}'
+                : 'To be confirmed',
             style: const TextStyle(color: _ink, fontSize: 13),
           ),
         ),
@@ -775,7 +895,11 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         children: [
           Text(
             title,
-            style: const TextStyle(color: _greenDark, fontSize: 13, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: _greenDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 13),
           ...children,
@@ -792,12 +916,19 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         children: [
           SizedBox(
             width: 110,
-            child: Text(label, style: const TextStyle(color: _muted, fontSize: 12)),
+            child: Text(
+              label,
+              style: const TextStyle(color: _muted, fontSize: 12),
+            ),
           ),
           Expanded(
             child: Text(
               value.isEmpty ? 'Not provided' : value,
-              style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                color: _ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -811,20 +942,62 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     ValueChanged<DateTime> onDateChanged,
     ValueChanged<TimeOfDay> onTimeChanged,
   ) async {
+    final now = DateTime.now();
+    final initialDate = date.isBefore(DateTime(now.year, now.month, now.day))
+        ? now
+        : date;
+    final initialTime = time;
+
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: date,
-      firstDate: DateTime(2024),
+      initialDate: initialDate,
+      firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(2035),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: _green)),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: const ColorScheme.light(primary: _green)),
         child: child!,
       ),
     );
     if (pickedDate == null || !mounted) return;
     onDateChanged(pickedDate);
-    final pickedTime = await showTimePicker(context: context, initialTime: time);
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
     if (pickedTime != null && mounted) onTimeChanged(pickedTime);
+  }
+
+  Future<void> _pickReturnDateAndTime() async {
+    final now = DateTime.now();
+    final initialDate = _returnDate ?? _departureDate;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(DateTime(now.year, now.month, now.day))
+          ? now
+          : initialDate,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(2035),
+      builder: (context, child) => Theme(
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: const ColorScheme.light(primary: _green)),
+        child: child!,
+      ),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _returnTime ?? _departureTime,
+    );
+    if (pickedTime == null || !mounted) return;
+
+    setState(() {
+      _returnDate = pickedDate;
+      _returnTime = pickedTime;
+    });
   }
 
   Future<void> _showAddPassengerDialog() async {
@@ -865,16 +1038,16 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.trim().isNotEmpty) {
-                Navigator.pop(
-                  dialogContext,
-                  {
-                    'name': nameController.text.trim(),
-                    'designation': designationController.text.trim(),
-                  },
-                );
+                Navigator.pop(dialogContext, {
+                  'name': nameController.text.trim(),
+                  'designation': designationController.text.trim(),
+                });
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: _green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Add'),
           ),
         ],
@@ -882,7 +1055,8 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     );
     nameController.dispose();
     designationController.dispose();
-    if (passenger != null && mounted) setState(() => _passengers.add(passenger));
+    if (passenger != null && mounted)
+      setState(() => _passengers.add(passenger));
   }
 
   void _nextStep() {
@@ -902,14 +1076,24 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
       _departureTime.hour,
       _departureTime.minute,
     ).toIso8601String();
+    final returnScheduledDeparture = _returnDate == null || _returnTime == null
+        ? null
+        : DateTime(
+            _returnDate!.year,
+            _returnDate!.month,
+            _returnDate!.day,
+            _returnTime!.hour,
+            _returnTime!.minute,
+          ).toIso8601String();
 
     try {
       await TripService.createTrip(
-        _originController.text.trim(),
-        _destinationController.text.trim(),
-        _purposeController.text.trim(),
-        scheduledDeparture,
-        List<Map<String, String>>.from(_passengers),
+        origin: _originController.text.trim(),
+        destination: _destinationController.text.trim(),
+        purpose: _purposeController.text.trim(),
+        scheduledDeparture: scheduledDeparture,
+        returnScheduledDeparture: returnScheduledDeparture,
+        passengers: List<Map<String, String>>.from(_passengers),
       );
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -922,7 +1106,10 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogContext),
-              style: ElevatedButton.styleFrom(backgroundColor: _green, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Done'),
             ),
           ],

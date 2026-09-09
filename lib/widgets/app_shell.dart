@@ -1,11 +1,146 @@
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/AdminCreateTripTicket.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/services/notification_service.dart';
+import 'package:cpsumotorpooladmin/services/trip_service.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // APP SHELL - Shared layout wrapper for all pages
 // Contains: AppColors, AppShell, Sidebar, NavItem, PageHeader
 // ═══════════════════════════════════════════════════════════════
+
+final ValueNotifier<int> adminTripTicketCountNotifier = ValueNotifier<int>(0);
+
+class AdminNotificationsController {
+  AdminNotificationsController._();
+
+  static final AdminNotificationsController instance =
+      AdminNotificationsController._();
+
+  final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
+  final ValueNotifier<List<Map<String, dynamic>>> notifications =
+      ValueNotifier<List<Map<String, dynamic>>>(const []);
+  Future<void> refresh() async {
+    try {
+      final countResult = await NotificationService.getUnreadCount();
+      final listResult = await NotificationService.getNotifications();
+
+      final count = countResult is Map
+          ? ((countResult['count'] ?? 0) as num).toInt()
+          : 0;
+      final items = (listResult is List ? listResult : const [])
+          .whereType<Map>()
+          .map<Map<String, dynamic>>(
+            (item) => {
+              'id': item['id'] ?? 0,
+              'message': item['message'] ?? 'Notification',
+              'created_at': item['created_at'] ?? '',
+            },
+          )
+          .toList();
+
+      unreadCount.value = count;
+      notifications.value = items;
+    } catch (_) {
+      unreadCount.value = 0;
+      notifications.value = const [];
+    }
+  }
+
+  Future<void> markAsReadAndRefresh(int id) async {
+    try {
+      await NotificationService.markAsRead(id);
+    } finally {
+      await refresh();
+    }
+  }
+
+  String relativeTime(String value) {
+    if (value.isEmpty) return 'Just now';
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return 'Just now';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m';
+    if (diff.inDays < 1) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${date.month}/${date.day}';
+  }
+
+  void showNotificationsDialog(BuildContext context) {
+    final items = notifications.value;
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Notifications'),
+          content: SizedBox(
+            width: 420,
+            child: items.isEmpty
+                ? const Text('No notifications.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final notification = items[index];
+                      final id = (notification['id'] ?? 0) as int;
+                      final message = (notification['message'] ?? '')
+                          .toString();
+                      final relativeTime = this.relativeTime(
+                        (notification['created_at'] ?? '').toString(),
+                      );
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.assignment_outlined,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          message,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        trailing: Text(
+                          relativeTime,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.mutedDark,
+                          ),
+                        ),
+                        onTap: () async {
+                          try {
+                            await markAsReadAndRefresh(id);
+                          } finally {
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 // ─── App Color Palette ───
 class AppColors {
@@ -23,11 +158,7 @@ class AppColors {
 
 // ─── App Shell (responsive layout: sidebar + content) ───
 class AppShell extends StatelessWidget {
-  const AppShell({
-    super.key,
-    required this.currentRoute,
-    required this.child,
-  });
+  const AppShell({super.key, required this.currentRoute, required this.child});
 
   final String currentRoute;
   final Widget child;
@@ -89,17 +220,65 @@ class _Sidebar extends StatefulWidget {
 
 class _SidebarState extends State<_Sidebar> {
   String? _name;
+  String _tripRequestCount = '0';
+  String _activeTripsCount = '0';
 
   @override
   void initState() {
     super.initState();
     _loadName();
+    _loadTripCounts();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadName() async {
     final name = await AuthService.getName();
     if (!mounted) return;
     setState(() => _name = name);
+  }
+
+  Future<void> _loadTripCounts() async {
+    try {
+          final result = await TripService.getAllTrips();
+        final rawTrips = result is Map && result['data'] is List
+          ? result['data'] as List
+          : result is List
+          ? result
+          : const [];
+
+      if (!mounted) return;
+
+      final pendingCount = rawTrips.whereType<Map>().fold<int>(0, (
+        total,
+        trip,
+      ) {
+        final status = (trip['status'] ?? '').toString().trim().toLowerCase();
+        return total + (status == 'pending' ? 1 : 0);
+      });
+
+      final activeCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return total + ((status == 'scheduled' || status == 'active') ? 1 : 0);
+      });
+
+      setState(() {
+        _tripRequestCount = pendingCount.toString();
+        _activeTripsCount = activeCount.toString();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _tripRequestCount = '0';
+        _activeTripsCount = '0';
+      });
+    }
   }
 
   void _go(BuildContext context, String route) {
@@ -188,7 +367,7 @@ class _SidebarState extends State<_Sidebar> {
       _NavItem(
         icon: Icons.assignment_outlined,
         label: 'Trip Request',
-        badge: '3',
+        badge: _tripRequestCount,
         compact: compact,
         selected: currentRoute == '/trip-request',
         onTap: () => _go(context, '/trip-request'),
@@ -202,8 +381,8 @@ class _SidebarState extends State<_Sidebar> {
       ),
       _NavItem(
         icon: Icons.explore_outlined,
-        label: 'Active Trips',
-        badge: '3',
+        label: 'Scheduled / Active Trips',
+        badge: _activeTripsCount,
         compact: compact,
         selected: currentRoute == '/active-trips',
         onTap: () => _go(context, '/active-trips'),
@@ -224,7 +403,7 @@ class _SidebarState extends State<_Sidebar> {
       ),
       _NavItem(
         icon: Icons.assignment_ind_outlined,
-        label: 'Coordinator Assignments',
+        label: 'Administrator assignment',
         compact: compact,
         selected: currentRoute == '/coordinator-assignments',
         onTap: () => _go(context, '/coordinator-assignments'),
@@ -448,8 +627,9 @@ class _NavItem extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           color: selected ? Colors.white : AppColors.navy,
                         ),
                       ),
@@ -483,13 +663,13 @@ class _Badge extends StatelessWidget {
       height: 22,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: selected ? Colors.white : AppColors.primary,
+        color: Colors.red,
         shape: BoxShape.circle,
       ),
       child: Text(
         value,
         style: TextStyle(
-          color: selected ? AppColors.primaryDark : Colors.white,
+          color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -498,11 +678,86 @@ class _Badge extends StatelessWidget {
   }
 }
 
+class AdminNotificationBell extends StatelessWidget {
+  const AdminNotificationBell({super.key, this.count, this.onTap});
+
+  final int? count;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bellCount =
+        count ?? AdminNotificationsController.instance.unreadCount.value;
+
+    return InkWell(
+      onTap:
+          onTap ??
+          () => AdminNotificationsController.instance.showNotificationsDialog(
+            context,
+          ),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Center(
+              child: Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.navy,
+                size: 22,
+              ),
+            ),
+            if (bellCount > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    bellCount > 9 ? '9+' : bellCount.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Reusable Page Header (title + notification + profile) ───
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key, required this.title});
+  const PageHeader({
+    super.key,
+    required this.title,
+    this.notificationCount = 0,
+    this.onNotificationsTap,
+  });
 
   final String title;
+  final int notificationCount;
+  final VoidCallback? onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -533,38 +788,18 @@ class PageHeader extends StatelessWidget {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Center(
-                    child: Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.navy,
-                      size: 22,
-                    ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 11,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            ValueListenableBuilder<int>(
+              valueListenable:
+                  AdminNotificationsController.instance.unreadCount,
+              builder: (context, count, _) {
+                return AdminNotificationBell(
+                  count: notificationCount > 0 ? notificationCount : count,
+                  onTap:
+                      onNotificationsTap ??
+                      () => AdminNotificationsController.instance
+                          .showNotificationsDialog(context),
+                );
+              },
             ),
             const SizedBox(width: 10),
             Container(
@@ -586,7 +821,10 @@ class PageHeader extends StatelessWidget {
               )
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [Expanded(child: titleBlock), actions],
+                children: [
+                  Expanded(child: titleBlock),
+                  actions,
+                ],
               );
       },
     );
@@ -595,11 +833,7 @@ class PageHeader extends StatelessWidget {
 
 // ─── Placeholder Page (used for pages not yet built) ───
 class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({
-    super.key,
-    required this.title,
-    required this.route,
-  });
+  const PlaceholderPage({super.key, required this.title, required this.route});
 
   final String title;
   final String route;

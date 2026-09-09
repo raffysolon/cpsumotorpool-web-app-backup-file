@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/services/notification_service.dart';
+import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
 import 'History.dart';
 import 'MyTrips.dart';
@@ -15,7 +18,6 @@ class DriverDashboard extends StatefulWidget {
 }
 
 class _DriverDashboardState extends State<DriverDashboard> {
-  // --- Theme constants: colors used by the driver dashboard ---
   static const _green = Color(0xFF0B8F5A);
   static const _greenDark = Color(0xFF087448);
   static const _greenSoft = Color(0xFFE8F7F0);
@@ -23,6 +25,451 @@ class _DriverDashboardState extends State<DriverDashboard> {
   static const _muted = Color(0xFF71827B);
   static const _line = Color(0xFFDCE9E2);
   static const _background = Color(0xFFF7FAF8);
+
+  bool _isLoadingActiveTrip = true;
+  bool _isLoadingTripCounts = true;
+  Map<String, dynamic>? _activeTrip;
+  int _myTripsCount = 0;
+  int _scheduledTripsCount = 0;
+  int _historyTripsCount = 0;
+  int _notificationCount = 0;
+  String _driverFirstName = 'Driver';
+  List<Map<String, dynamic>> _notifications = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActiveTrip();
+    _loadTripCounts();
+    _loadNotifications();
+    _loadDriverName();
+  }
+
+  Future<void> _loadDriverName() async {
+    final name = (await AuthService.getName())?.trim() ?? '';
+    if (!mounted || name.isEmpty) return;
+    setState(() {
+      _driverFirstName = name.split(RegExp(r'\s+')).first;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadNotifications();
+  }
+
+  Future<void> _loadActiveTrip() async {
+    try {
+      final result = await TripService.getMyTrips(status: 'active');
+      final trips = result is List ? result : const [];
+      if (!mounted) return;
+      setState(() {
+        _activeTrip = trips.isNotEmpty
+            ? trips.first as Map<String, dynamic>
+            : null;
+        _isLoadingActiveTrip = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _activeTrip = null;
+        _isLoadingActiveTrip = false;
+      });
+    }
+  }
+
+  Future<void> _loadTripCounts() async {
+    try {
+      final allTrips = await TripService.getMyTrips();
+      final scheduledTrips = await TripService.getMyTrips(status: 'scheduled');
+      final rawTrips = allTrips is List ? allTrips : const [];
+      final rawScheduledTrips = scheduledTrips is List
+          ? scheduledTrips
+          : const [];
+      final visibleMyTrips = rawTrips.whereType<Map>().where((trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return status != 'active' && status != 'completed';
+      }).toList();
+      final completedTrips = rawTrips.whereType<Map>().where((trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return status == 'completed';
+      }).toList();
+      final approvedNotifications = rawTrips
+          .whereType<Map>()
+          .where((trip) {
+            final status = (trip['effective_status'] ?? trip['status'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            return status == 'approved' ||
+                status == 'scheduled' ||
+                status == 'active';
+          })
+          .map<Map<String, String>>((trip) {
+            final origin = (trip['origin'] ?? 'Origin').toString();
+            final destination = (trip['destination'] ?? 'Destination')
+                .toString();
+            final route = '$origin to $destination';
+            final status =
+                (trip['effective_status'] ?? trip['status'] ?? 'approved')
+                    .toString();
+            return {
+              'title': 'Trip update',
+              'message': route,
+              'time': status.toUpperCase(),
+            };
+          })
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _myTripsCount = visibleMyTrips.length;
+        _scheduledTripsCount = rawScheduledTrips.length;
+        _historyTripsCount = completedTrips.length;
+        _notifications = approvedNotifications;
+        _isLoadingTripCounts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _myTripsCount = 0;
+        _scheduledTripsCount = 0;
+        _historyTripsCount = 0;
+        _notifications = const [];
+        _isLoadingTripCounts = false;
+      });
+    }
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final countResult = await NotificationService.getUnreadCount();
+      final listResult = await NotificationService.getNotifications();
+
+      final count = countResult is Map ? (countResult['count'] ?? 0) as int : 0;
+      final notifications = (listResult is List ? listResult : const [])
+          .whereType<Map>()
+          .map<Map<String, dynamic>>(
+            (item) => {
+              'id': item['id'] ?? 0,
+              'message': item['message'] ?? 'Notification',
+              'created_at': item['created_at'] ?? '',
+            },
+          )
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _notificationCount = count;
+        _notifications = notifications;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notificationCount = 0;
+        _notifications = const [];
+      });
+    }
+  }
+
+  void _showNotificationsDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Notifications'),
+          content: SizedBox(
+            width: 420,
+            child: _notifications.isEmpty
+                ? const Text('No notifications.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _notifications.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final notification = _notifications[index];
+                      final id = (notification['id'] ?? 0) as int;
+                      final message = (notification['message'] ?? '')
+                          .toString();
+                      final relativeTime = _relativeTime(
+                        (notification['created_at'] ?? '').toString(),
+                      );
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: _greenSoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle_outline,
+                            color: _green,
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          message,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        trailing: Text(
+                          relativeTime,
+                          style: const TextStyle(fontSize: 10, color: _muted),
+                        ),
+                        onTap: () async {
+                          try {
+                            await NotificationService.markAsRead(id);
+                            if (mounted) {
+                              await _loadNotifications();
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _relativeTime(String value) {
+    if (value.isEmpty) return 'Just now';
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return 'Just now';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m';
+    if (diff.inDays < 1) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${date.month}/${date.day}';
+  }
+
+  String _formatDeparture(String? value) {
+    if (value == null || value.isEmpty) return '—';
+    try {
+      final parsed = DateTime.tryParse(value)?.toLocal();
+      if (parsed == null) return value;
+      final month = _monthShort(parsed.month);
+      final day = parsed.day;
+      final year = parsed.year;
+      final hour = parsed.hour;
+      final minute = parsed.minute.toString().padLeft(2, '0');
+      final suffix = hour >= 12 ? 'PM' : 'AM';
+      final formattedHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      return '$month $day, $year • $formattedHour:$minute $suffix';
+    } catch (_) {
+      return value;
+    }
+  }
+
+  String _monthShort(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month - 1];
+  }
+
+  String _routeText(Map<String, dynamic>? trip) {
+    if (trip == null) return 'No active trip';
+    final origin = (trip['origin'] ?? '').toString();
+    final destination = (trip['destination'] ?? '').toString();
+    if (origin.isEmpty && destination.isEmpty) return 'Trip in progress';
+    if (origin.isEmpty) return destination;
+    if (destination.isEmpty) return origin;
+    return '$origin to $destination';
+  }
+
+  String _activeActionLabel(Map<String, dynamic> trip) {
+    final tripStatus = '${trip['status'] ?? trip['effective_status'] ?? ''}'
+      .trim()
+      .toLowerCase();
+    final movements =
+        (trip['movements'] is List ? trip['movements'] as List : const [])
+            .whereType<Map>()
+            .toList();
+    final outboundMatches = movements
+        .where((item) => '${item['movement_no']}' == '1')
+        .toList();
+    final returnMatches = movements
+        .where((item) => '${item['movement_no']}' == '2')
+        .toList();
+    final outbound = outboundMatches.isEmpty ? null : outboundMatches.first;
+    final returnMovement = returnMatches.isEmpty ? null : returnMatches.first;
+    if (tripStatus == 'active' && '${outbound?['status'] ?? ''}' != 'completed') {
+      return 'End Trip';
+    }
+    if ('${returnMovement?['status'] ?? ''}' == 'active') {
+      return 'End Return Trip';
+    }
+    if ('${outbound?['status'] ?? ''}' == 'scheduled') {
+      return 'Start Trip';
+    }
+    if ('${outbound?['status'] ?? ''}' == 'active') {
+      return 'End Trip';
+    }
+    if ('${outbound?['status'] ?? ''}' == 'completed') {
+      return 'Start Return Trip';
+    }
+    return 'Start Trip';
+  }
+
+  Widget _buildCurrentActiveTripCard() {
+    if (_isLoadingActiveTrip) {
+      return Container(
+        constraints: const BoxConstraints(minHeight: 248),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _line),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_activeTrip == null) {
+      return Container(
+        constraints: const BoxConstraints(minHeight: 248),
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _line),
+        ),
+        child: const Center(
+          child: Text(
+            'No active trip right now',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final trip = _activeTrip!;
+    final vehicle = trip['vehicle'] is Map
+        ? trip['vehicle'] as Map<String, dynamic>
+        : const {};
+    final vehicleLabel =
+        vehicle['plate_no']?.toString() ?? vehicle['name']?.toString() ?? '—';
+    final route = _routeText(trip);
+    final actionLabel = _activeActionLabel(trip);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 248),
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Active Trip',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _greenSoft,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'ACTIVE',
+                  style: TextStyle(
+                    color: _greenDark,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Text(
+            route,
+            style: const TextStyle(
+              color: _ink,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 19),
+          const Divider(color: _line, height: 1),
+          const SizedBox(height: 16),
+          _buildTripDetails(
+            vehicle: vehicleLabel,
+            departure: _formatDeparture(
+              trip['scheduled_departure']?.toString(),
+            ),
+            status: 'In Progress',
+          ),
+          const SizedBox(height: 22),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: _showEndTripDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 13,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(actionLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +524,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
           ),
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () => _showUnavailableMessage('Notifications'),
-            icon: const Icon(Icons.notifications_none_rounded, color: _ink),
+            onPressed: _showNotificationsDialog,
+            icon: Badge(
+              label: Text(
+                _notificationCount > 9 ? '9+' : _notificationCount.toString(),
+              ),
+              backgroundColor: _green,
+              isLabelVisible: _notificationCount > 0,
+              child: const Icon(Icons.notifications_none_rounded, color: _ink),
+            ),
           ),
           IconButton(
             tooltip: 'Log out',
@@ -117,11 +571,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
         const Spacer(),
         IconButton(
           tooltip: 'Notifications',
-          onPressed: () => _showUnavailableMessage('Notifications'),
-          icon: const Badge(
-            label: Text('3'),
+          onPressed: _showNotificationsDialog,
+          icon: Badge(
+            label: Text(
+              _notificationCount > 9 ? '9+' : _notificationCount.toString(),
+            ),
             backgroundColor: _green,
-            child: Icon(Icons.notifications_none_rounded, color: _ink),
+            isLabelVisible: _notificationCount > 0,
+            child: const Icon(Icons.notifications_none_rounded, color: _ink),
           ),
         ),
         const SizedBox(width: 10),
@@ -193,7 +650,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'Settings',
-            onPressed: () => _showUnavailableMessage('Settings'),
+            onPressed: () => Navigator.pushNamed(context, '/driver-settings'),
             icon: const Icon(Icons.settings_outlined, color: _muted, size: 19),
             visualDensity: VisualDensity.compact,
           ),
@@ -212,8 +669,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Welcome, Driver!',
+        Text(
+          'Welcome, $_driverFirstName!',
           style: TextStyle(
             color: _ink,
             fontSize: 30,
@@ -245,7 +702,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       children: [
         Expanded(flex: 5, child: _buildCreateTripCard()),
         const SizedBox(width: 22),
-        Expanded(flex: 7, child: _buildActiveTripCard(narrow: narrow)),
+        Expanded(flex: 7, child: _buildCurrentActiveTripCard()),
       ],
     );
   }
@@ -301,177 +758,94 @@ class _DriverDashboardState extends State<DriverDashboard> {
   }
 
   Widget _buildActiveTripCard({required bool narrow}) {
-    return Container(
-      constraints: BoxConstraints(minHeight: narrow ? 340 : 248),
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Active Trip',
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _greenSoft,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ACTIVE',
-                  style: TextStyle(
-                    color: _greenDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'San Carlos to Kabankalan',
-            style: TextStyle(
-              color: _ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 19),
-          const Divider(color: _line, height: 1),
-          const SizedBox(height: 16),
-          _buildTripDetails(narrow: narrow),
-          const SizedBox(height: 22),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: _showEndTripDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _green,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 13,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('End Trip'),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildCurrentActiveTripCard();
   }
 
   Future<void> _showEndTripDialog() async {
-    final arrivalTimeController = TextEditingController(
-      text: TimeOfDay.now().format(context),
-    );
+    final tripId = int.tryParse('${_activeTrip?['id'] ?? ''}');
+    if (tripId == null) return;
+    final actionLabel = _activeActionLabel(_activeTrip!);
 
-    final arrivalDetails = await showDialog<Map<String, String>>(
+    final shouldEnd = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final canConfirm = arrivalTimeController.text.trim().isNotEmpty;
-
-            void onFieldChanged(String value) {
-              setDialogState(() {});
-            }
-
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          title: Text(
+            actionLabel,
+            style: const TextStyle(color: _ink, fontWeight: FontWeight.w800),
+          ),
+          content: Text(
+            actionLabel == 'Start Trip'
+                ? 'The system will record the departure time automatically.'
+                : actionLabel == 'Start Return Trip'
+                ? 'The system will record the return departure time automatically.'
+                : 'The system will record the current arrival time automatically.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
               ),
-              title: const Text(
-                'Trip Arrival Details',
-                style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: arrivalTimeController,
-                      onChanged: onFieldChanged,
-                      decoration: const InputDecoration(
-                        labelText: 'Arrival Time',
-                        prefixIcon: Icon(Icons.access_time_rounded),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _muted,
-                    side: const BorderSide(color: _line),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: canConfirm
-                      ? () => Navigator.pop(dialogContext, {
-                          'arrivalTime': arrivalTimeController.text.trim(),
-                        })
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _green,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    disabledForegroundColor: Colors.grey.shade600,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Confirm End Trip'),
-                ),
-              ],
-            );
-          },
+              child: Text(actionLabel),
+            ),
+          ],
         );
       },
     );
 
-    arrivalTimeController.dispose();
+    if (shouldEnd != true || !mounted) return;
 
-    if (arrivalDetails == null || !mounted) return;
-
-    _endTrip('active-trip-1300', arrivalDetails['arrivalTime']!);
+    try {
+      if (actionLabel == 'Start Trip') {
+        await TripService.startTrip(tripId);
+      } else if (actionLabel == 'Start Return Trip') {
+        await TripService.startReturnTrip(tripId);
+      } else if (actionLabel == 'End Return Trip') {
+        await TripService.endReturnTrip(tripId);
+      } else {
+        await TripService.endTrip(tripId);
+      }
+      await _loadActiveTrip();
+      await _loadTripCounts();
+      if (!mounted) return;
+      final successMessage = actionLabel == 'Start Trip'
+          ? 'Trip started. Departure time was recorded automatically.'
+          : actionLabel == 'Start Return Trip'
+          ? 'Return trip started. Departure time was recorded automatically.'
+          : actionLabel == 'End Return Trip'
+          ? 'Return trip ended. Arrival time was recorded automatically.'
+          : 'Trip ended. Arrival time was recorded automatically.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to end trip: $error')));
+    }
   }
 
-  void _endTrip(String tripId, String arrivalTime) {
-    // TODO: POST the arrival time and mark this trip COMPLETED in the backend.
-  }
-
-  Widget _buildTripDetails({required bool narrow}) {
+  Widget _buildTripDetails({
+    required String vehicle,
+    required String departure,
+    required String status,
+    bool narrow = false,
+  }) {
     final details = [
-      _buildTripDetail('VEHICLE', '1300', expanded: !narrow),
-      _buildTripDetail('DEPARTURE', '08:30 AM', expanded: !narrow),
-      _buildTripDetail('STATUS', 'In Progress', expanded: !narrow),
+      _buildTripDetail('VEHICLE', vehicle, expanded: !narrow),
+      _buildTripDetail('DEPARTURE', departure, expanded: !narrow),
+      _buildTripDetail('STATUS', status, expanded: !narrow),
     ];
     return narrow
         ? Column(
@@ -514,6 +888,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         Icons.receipt_long_outlined,
         'My Trips',
         'Pending & completed',
+        count: _isLoadingTripCounts ? null : _myTripsCount,
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const MyTripsPage()),
@@ -523,6 +898,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         Icons.history_rounded,
         'History',
         'Past trips',
+        count: _isLoadingTripCounts ? null : _historyTripsCount,
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const HistoryPage()),
@@ -532,6 +908,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
         Icons.schedule_outlined,
         'Scheduled Trips',
         'Upcoming trips',
+        count: _isLoadingTripCounts ? null : _scheduledTripsCount,
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ScheduleTripPage()),
@@ -566,6 +943,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     IconData icon,
     String title,
     String subtitle, {
+    int? count,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -594,14 +972,43 @@ class _DriverDashboardState extends State<DriverDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _ink,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (count != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 24),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            count.toString(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(

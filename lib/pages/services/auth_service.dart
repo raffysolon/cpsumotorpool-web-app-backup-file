@@ -42,4 +42,31 @@ class AuthService {
   static Future<void> logout() async {
     await _storage.deleteAll();
   }
+
+  static Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found');
+    }
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/change-password'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      }),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Unable to change password');
+    }
+  }
 }
