@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
@@ -224,30 +226,24 @@ class _TripRequestContentState extends State<_TripRequestContent> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: _loadTrips,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(28),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSectionHeader(),
-                            const SizedBox(height: 16),
-                            _buildTable(),
-                          ],
-                        ),
-                      ),
+        AdminPageScaffold(
+          title: 'Trip Requests',
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadTrips,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(),
+                        const SizedBox(height: 16),
+                        _buildTable(),
+                      ],
                     ),
-            ),
-          ],
+                  ),
+                ),
         ),
         if (_isOpeningTicket)
           Positioned.fill(
@@ -291,60 +287,14 @@ class _TripRequestContentState extends State<_TripRequestContent> {
     );
   }
 
-  Widget _buildTopBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: Row(
-        children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Trip Requests',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Province of Negros Occidental — Motorpool Division',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) {
-              return AdminNotificationBell(
-                count: count,
-                onTap: () => AdminNotificationsController.instance
-                    .showNotificationsDialog(context),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSectionHeader() {
     final pending = _trips.where((trip) => trip.status == 'Pending').length;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Trip Requests',
-          style: TextStyle(
+        Text(
+          'Pending requests',
+          style: AppTypography.bodyStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             color: AppColors.navy,
@@ -491,15 +441,12 @@ class _ViewDetailsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Color(0xFF334155)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.18),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),

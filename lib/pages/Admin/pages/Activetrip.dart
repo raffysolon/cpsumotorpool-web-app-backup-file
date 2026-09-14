@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -151,76 +153,24 @@ class _ActiveTripState extends State<ActiveTrip> {
   Widget build(BuildContext context) {
     return AppShell(
       currentRoute: '/active-trips',
-      child: RefreshIndicator(
-        onRefresh: _loadTrips,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader(),
-                    const SizedBox(height: 14),
-                    _buildStatusFilters(),
-                    const SizedBox(height: 16),
-                    _buildTable(),
-                  ],
-                ),
-              ),
+      child: AdminPageScaffold(
+        title: 'Active Trips',
+        child: RefreshIndicator(
+          onRefresh: _loadTrips,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader(),
+                const SizedBox(height: 14),
+                _buildStatusFilters(),
+                const SizedBox(height: 16),
+                _buildTable(),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: Row(
-        children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Active Trips',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Province of Negros Occidental — Motorpool Division',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) {
-              return AdminNotificationBell(
-                count: count,
-                onTap: () => AdminNotificationsController.instance
-                    .showNotificationsDialog(context),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
-          ),
-        ],
       ),
     );
   }
@@ -228,10 +178,10 @@ class _ActiveTripState extends State<ActiveTrip> {
   Widget _buildSectionHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           'Scheduled and Active Trips',
-          style: TextStyle(
+          style: AppTypography.bodyStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             color: AppColors.navy,

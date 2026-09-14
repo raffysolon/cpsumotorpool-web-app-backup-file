@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -283,23 +285,19 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       children: [
         RefreshIndicator(
           onRefresh: _loadTrips,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _topBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
+          child: AdminPageScaffold(
+            title: 'Trip History',
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Completed Trips',
-                        style: TextStyle(
+                        style: AppTypography.bodyStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.navy,
@@ -307,7 +305,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                       ),
                       Text(
                         '${_trips.length} records',
-                        style: const TextStyle(
+                        style: AppTypography.bodyStyle(
                           fontSize: 13,
                           color: AppColors.mutedDark,
                         ),
@@ -317,57 +315,11 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                   const SizedBox(height: 16),
                   _table(),
                     ],
-                  ),
-                ),
               ),
-            ],
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _topBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: Row(
-        children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Trip History',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Province of Negros Occidental - Motorpool Division',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) => AdminNotificationBell(
-              count: count,
-              onTap: () => AdminNotificationsController.instance
-                  .showNotificationsDialog(context),
-            ),
-          ),
-          const SizedBox(width: 10),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
-          ),
-        ],
-      ),
     );
   }
 

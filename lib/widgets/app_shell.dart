@@ -162,11 +162,11 @@ class AppColors {
   static const Color iconGreen4 = Color(0xFF166534);
 }
 
-// ─── Typography (CustomFont body, Playfair Display titles, Oswald labels) ───
+// ─── Typography (system body, Playfair Display titles, Oswald labels) ───
 class AppTypography {
   AppTypography._();
 
-  static const String body = 'CustomFont';
+  static const String? body = null;
   static const String display = 'Playfair Display';
   static const String label = 'Oswald';
 
@@ -597,7 +597,7 @@ class _SidebarState extends State<_Sidebar> {
       ),
       _NavItem(
         icon: Icons.explore_outlined,
-        label: 'Scheduled / Active Trips',
+        label: 'Active Trips',
         badge: _activeTripsCount,
         compact: compact,
         selected: currentRoute == '/active-trips',
@@ -612,14 +612,14 @@ class _SidebarState extends State<_Sidebar> {
       ),
       _NavItem(
         icon: Icons.local_shipping_outlined,
-        label: 'Vehicle & Drivers',
+        label: 'Vehicles & Drivers',
         compact: compact,
         selected: currentRoute == '/vehicles',
         onTap: () => _go(context, '/vehicles'),
       ),
       _NavItem(
         icon: Icons.assignment_ind_outlined,
-        label: 'Administrator assignment',
+        label: 'Assignments',
         compact: compact,
         selected: currentRoute == '/coordinator-assignments',
         onTap: () => _go(context, '/coordinator-assignments'),
@@ -806,6 +806,12 @@ class _NavItem extends StatelessWidget {
   final String? badge;
   final bool compact;
 
+  static bool _showBadge(String? value) {
+    if (value == null) return false;
+    final trimmed = value.trim();
+    return trimmed.isNotEmpty && trimmed != '0';
+  }
+
   @override
   Widget build(BuildContext context) {
     final iconColor = selected ? AppColors.primaryDark : AppColors.mutedDark;
@@ -840,7 +846,7 @@ class _NavItem extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     Icon(icon, size: 22, color: iconColor),
-                    if (badge != null)
+                    if (_showBadge(badge))
                       Positioned(
                         top: -4,
                         right: 8,
@@ -864,7 +870,7 @@ class _NavItem extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (badge != null)
+                    if (_showBadge(badge))
                       _Badge(value: badge!, selected: selected),
                   ],
                 ),
@@ -990,11 +996,13 @@ class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
     required this.title,
+    this.subtitle = 'CPSU Motor Pool — Fleet Management',
     this.notificationCount = 0,
     this.onNotificationsTap,
   });
 
   final String title;
+  final String subtitle;
   final int notificationCount;
   final VoidCallback? onNotificationsTap;
 
@@ -1016,7 +1024,7 @@ class PageHeader extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Province of Negros Occidental - Motorpool Division',
+              subtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.bodyStyle(
@@ -1079,6 +1087,43 @@ class PageHeader extends StatelessWidget {
                   actions,
                 ],
               );
+      },
+    );
+  }
+}
+
+class AdminPageScaffold extends StatelessWidget {
+  const AdminPageScaffold({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pad = constraints.maxWidth < 700 ? 16.0 : 28.0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad, 20, pad, 0),
+              child: PageHeader(title: title, subtitle: subtitle ?? 'CPSU Motor Pool — Fleet Management'),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(pad, 16, pad, 20),
+                child: child,
+              ),
+            ),
+          ],
+        );
       },
     );
   }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
@@ -202,13 +204,9 @@ class _CoordinatorAssignmentsContentState
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTopBar(context),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
+    return AdminPageScaffold(
+      title: 'Assignments',
+      child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -216,55 +214,27 @@ class _CoordinatorAssignmentsContentState
                 const SizedBox(height: 16),
                 _buildTable(context),
               ],
-            ),
-          ),
         ),
-      ],
+      ),
     );
   }
 
-  // ─── Top Bar ───
-  Widget _buildTopBar(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
+  // ─── Table Header ───
+  Widget _buildTableHeader() {
+    const style = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: AppColors.mutedDark,
+      letterSpacing: 0.8,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'Campus Administrator Assignments',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Province of Negros Occidental — Motorpool Division',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) {
-              return AdminNotificationBell(
-                count: count,
-                onTap: () => AdminNotificationsController.instance.showNotificationsDialog(context),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
-          // Profile avatar
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: const Icon(Icons.person, color: Colors.white, size: 20),
-          ),
+        children: const [
+          Expanded(flex: 4, child: Text('CAMPUS / ADMINISTRATOR', style: style)),
+          Expanded(flex: 3, child: Text('ASSIGNED DRIVER', style: style)),
+          Expanded(flex: 4, child: Text('ASSIGNED VEHICLE', style: style)),
+          SizedBox(width: 120),
         ],
       ),
     );
@@ -347,28 +317,6 @@ class _CoordinatorAssignmentsContentState
     );
   }
 
-  // ─── Table Header ───
-  Widget _buildTableHeader() {
-    const style = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      color: AppColors.mutedDark,
-      letterSpacing: 0.8,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: const [
-          Expanded(flex: 4, child: Text('CAMPUS / ADMINISTRATOR', style: style)),
-          Expanded(flex: 3, child: Text('ASSIGNED DRIVER', style: style)),
-          Expanded(flex: 4, child: Text('ASSIGNED VEHICLE', style: style)),
-          SizedBox(width: 120),
-        ],
-      ),
-    );
-  }
-
-  // ─── Table Row ───
   Widget _buildTableRow(BuildContext context, _CoordinatorAssignment assignment) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),

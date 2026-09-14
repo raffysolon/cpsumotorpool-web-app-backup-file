@@ -35,13 +35,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E)),
         useMaterial3: true,
-        fontFamily: AppTypography.body,
         textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle()),
-        filledButtonTheme: FilledButtonThemeData(style: _buttonStyle()),
-        outlinedButtonTheme: OutlinedButtonThemeData(style: _buttonStyle()),
-        textButtonTheme: TextButtonThemeData(style: _buttonStyle()),
+        elevatedButtonTheme: ElevatedButtonThemeData(style: _filledButtonStyle()),
+        filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle()),
+        outlinedButtonTheme: OutlinedButtonThemeData(style: _outlinedButtonStyle()),
+        textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
       ),
       // ─── Route Definitions ───
       initialRoute: '/splash',
@@ -65,22 +64,51 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  static ButtonStyle _buttonStyle() {
+  static ButtonStyle _filledButtonStyle() {
     return ButtonStyle(
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      foregroundColor: const WidgetStatePropertyAll(Colors.black),
+      backgroundColor: const WidgetStatePropertyAll(Color(0xFF1F8A3D)),
+      foregroundColor: const WidgetStatePropertyAll(Colors.white),
       overlayColor: WidgetStatePropertyAll(
-        const Color(0xFF22C55E).withValues(alpha: 0.10),
+        Colors.white.withValues(alpha: 0.12),
       ),
-      side: const WidgetStatePropertyAll(BorderSide(color: Color(0xFF86EFAC))),
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       elevation: const WidgetStatePropertyAll(0),
       padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
-      minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+    );
+  }
+
+  static ButtonStyle _outlinedButtonStyle() {
+    return ButtonStyle(
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      foregroundColor: const WidgetStatePropertyAll(Color(0xFF1F2933)),
+      overlayColor: WidgetStatePropertyAll(
+        const Color(0xFF1F8A3D).withValues(alpha: 0.08),
+      ),
+      side: const WidgetStatePropertyAll(BorderSide(color: Color(0xFF86EFAC))),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+    );
+  }
+
+  static ButtonStyle _textButtonStyle() {
+    return ButtonStyle(
+      foregroundColor: const WidgetStatePropertyAll(Color(0xFF176E30)),
+      overlayColor: WidgetStatePropertyAll(
+        const Color(0xFF1F8A3D).withValues(alpha: 0.08),
+      ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
     );
   }
 }

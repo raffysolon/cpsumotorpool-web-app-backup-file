@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
@@ -59,53 +61,11 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
     AdminNotificationsController.instance.refresh();
   }
 
-  void _showNotifications(BuildContext context) {
-    AdminNotificationsController.instance.showNotificationsDialog(context);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GlassCard(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-          borderRadius: 0,
-          child: Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Sync Logs',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.navy)),
-                  SizedBox(height: 2),
-                  Text('Province of Negros Occidental — Motorpool Division',
-                      style: TextStyle(fontSize: 13, color: AppColors.mutedDark)),
-                ],
-              ),
-              const Spacer(),
-              ValueListenableBuilder<int>(
-                valueListenable: AdminNotificationsController.instance.unreadCount,
-                builder: (context, count, _) {
-                  return AdminNotificationBell(
-                    count: count,
-                    onTap: () => _showNotifications(context),
-                  );
-                },
-              ),
-              const SizedBox(width: 10),
-              CircleAvatar(
-                child: const Icon(Icons.person, color: Colors.white, size: 20),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
+    return AdminPageScaffold(
+      title: 'Sync Logs',
+      child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -113,10 +73,8 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
                 const SizedBox(height: 16),
                 _buildTable(),
               ],
-            ),
-          ),
         ),
-      ],
+      ),
     );
   }
 

@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -175,9 +177,10 @@ class _AdminCreateTripTicketContentState
             );
 
             if (!mounted ||
-                !currentContext.mounted ||
-                !Navigator.of(currentDialogContext).mounted)
+              !currentContext.mounted ||
+              !Navigator.of(currentDialogContext).mounted) {
               return;
+            }
             Navigator.pop(currentDialogContext);
             adminTripTicketCountNotifier.value = 0;
             ScaffoldMessenger.of(currentContext).showSnackBar(
@@ -727,7 +730,7 @@ class _CreateTripDialogState extends State<_CreateTripDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
-                value: _selectedDriverId,
+                initialValue: _selectedDriverId,
                 isExpanded: true,
                 hint: _availableDrivers.isEmpty
                     ? const Text('No available drivers')
@@ -760,7 +763,7 @@ class _CreateTripDialogState extends State<_CreateTripDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
-                value: _selectedVehicleId,
+                initialValue: _selectedVehicleId,
                 isExpanded: true,
                 hint: _availableVehicles.isEmpty
                     ? const Text('No available vehicles')
