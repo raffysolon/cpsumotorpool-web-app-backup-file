@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'widgets/app_shell.dart';
+
 // ─── Page Imports ───
 import 'pages/Admin/pages/Activetrip.dart';
 import 'pages/Admin/pages/Dashboard.dart';
@@ -33,7 +35,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E)),
         useMaterial3: true,
-        fontFamily: 'CustomFont',
+        fontFamily: AppTypography.body,
+        textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle()),
         filledButtonTheme: FilledButtonThemeData(style: _buttonStyle()),

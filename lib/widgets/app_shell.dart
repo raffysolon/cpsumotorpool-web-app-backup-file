@@ -110,11 +110,11 @@ class AdminNotificationsController {
                         ),
                         title: Text(
                           message,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          style: AppTypography.bodyStyle(fontWeight: FontWeight.w700),
                         ),
                         trailing: Text(
                           relativeTime,
-                          style: const TextStyle(
+                          style: AppTypography.bodyStyle(
                             fontSize: 10,
                             color: AppColors.mutedDark,
                           ),
@@ -160,6 +160,97 @@ class AppColors {
   static const Color iconGreen2 = Color(0xFF4ADE80);
   static const Color iconGreen3 = Color(0xFF15803D);
   static const Color iconGreen4 = Color(0xFF166534);
+}
+
+// ─── Typography (CustomFont body, Playfair Display titles, Oswald labels) ───
+class AppTypography {
+  AppTypography._();
+
+  static const String body = 'CustomFont';
+  static const String display = 'Playfair Display';
+  static const String label = 'Oswald';
+
+  static TextStyle displayTitle({
+    Color? color,
+    double fontSize = 26,
+    FontWeight fontWeight = FontWeight.w800,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      TextStyle(
+        fontFamily: display,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+        height: height,
+      );
+
+  static TextStyle labelCaps({
+    Color? color,
+    double fontSize = 13,
+    FontWeight fontWeight = FontWeight.w600,
+    double letterSpacing = 1.2,
+  }) =>
+      TextStyle(
+        fontFamily: label,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle bodyStyle({
+    Color? color,
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      TextStyle(
+        fontFamily: body,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle buttonLabel({
+    Color? color,
+    double fontSize = 16,
+    FontWeight fontWeight = FontWeight.w700,
+    double letterSpacing = 0.3,
+  }) =>
+      TextStyle(
+        fontFamily: body,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextTheme textTheme(TextTheme base) => base.apply(
+        fontFamily: body,
+        displayColor: AppColors.navy,
+        bodyColor: AppColors.navy,
+      ).copyWith(
+        displayLarge: displayTitle(fontSize: 32),
+        displayMedium: displayTitle(fontSize: 28),
+        displaySmall: displayTitle(fontSize: 24),
+        headlineLarge: displayTitle(fontSize: 26),
+        headlineMedium: displayTitle(fontSize: 22, fontWeight: FontWeight.w700),
+        headlineSmall: displayTitle(fontSize: 20, fontWeight: FontWeight.w700),
+        titleLarge: bodyStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        titleMedium: bodyStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        titleSmall: bodyStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        bodyLarge: bodyStyle(fontSize: 16),
+        bodyMedium: bodyStyle(fontSize: 14),
+        bodySmall: bodyStyle(fontSize: 12, color: AppColors.mutedDark),
+        labelLarge: buttonLabel(fontSize: 14),
+        labelMedium: labelCaps(fontSize: 12, letterSpacing: 1.0),
+        labelSmall: labelCaps(fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 1.1),
+      );
 }
 
 // ─── Shared frosted glass surface (login-matched) ───
@@ -296,9 +387,12 @@ class AppShell extends StatelessWidget {
               foregroundColor: AppColors.navy,
               elevation: 0,
               surfaceTintColor: Colors.transparent,
-              title: const Text(
+              title: Text(
                 'MotorPool',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                style: AppTypography.displayTitle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
               ),
             ),
             drawer: Drawer(
@@ -428,23 +522,26 @@ class _SidebarState extends State<_Sidebar> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          title: const Text(
+          title: Text(
             'Log out?',
-            style: TextStyle(
+            style: AppTypography.displayTitle(
               color: AppColors.navy,
               fontWeight: FontWeight.w800,
             ),
           ),
-          content: const Text(
+          content: Text(
             'Are you sure you want to log out of the admin account?',
-            style: TextStyle(color: AppColors.mutedDark, height: 1.4),
+            style: AppTypography.bodyStyle(
+              color: AppColors.mutedDark,
+              height: 1.4,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text(
+              child: Text(
                 'Cancel',
-                style: TextStyle(color: AppColors.mutedDark),
+                style: AppTypography.buttonLabel(color: AppColors.mutedDark),
               ),
             ),
             ElevatedButton(
@@ -585,16 +682,15 @@ class _SidebarState extends State<_Sidebar> {
                 ),
                 if (!compact) ...[
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'MotorPool',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTypography.displayTitle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w700,
                             color: AppColors.navy,
                             height: 1.1,
                           ),
@@ -603,9 +699,10 @@ class _SidebarState extends State<_Sidebar> {
                         Text(
                           'Fleet Management',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTypography.labelCaps(
                             fontSize: 11,
                             color: AppColors.mutedDark,
+                            letterSpacing: 0,
                           ),
                         ),
                       ],
@@ -652,7 +749,7 @@ class _SidebarState extends State<_Sidebar> {
                         Text(
                           _name ?? 'Loading...',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTypography.bodyStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                             color: AppColors.navy,
@@ -661,9 +758,10 @@ class _SidebarState extends State<_Sidebar> {
                         Text(
                           'Motorpool Admin',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTypography.labelCaps(
                             fontSize: 11,
                             color: AppColors.mutedDark,
+                            letterSpacing: 0,
                           ),
                         ),
                       ],
@@ -758,7 +856,7 @@ class _NavItem extends StatelessWidget {
                       child: Text(
                         label,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: AppTypography.bodyStyle(
                           fontSize: 14,
                           fontWeight:
                               selected ? FontWeight.w600 : FontWeight.w500,
@@ -800,10 +898,11 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         value,
-        style: TextStyle(
+        style: AppTypography.labelCaps(
           color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -870,10 +969,11 @@ class AdminNotificationBell extends StatelessWidget {
                   child: Text(
                     bellCount > 9 ? '9+' : bellCount.toString(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: AppTypography.labelCaps(
                       color: Colors.white,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -908,18 +1008,21 @@ class PageHeader extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: AppTypography.displayTitle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
                 color: AppColors.navy,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Province of Negros Occidental - Motorpool Division',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
+              style: AppTypography.bodyStyle(
+                fontSize: 13,
+                color: AppColors.mutedDark,
+              ),
             ),
           ],
         );
@@ -1007,7 +1110,7 @@ class PlaceholderPage extends StatelessWidget {
                   borderRadius: 16,
                   child: Text(
                     '$title content coming soon.',
-                    style: const TextStyle(color: AppColors.mutedDark),
+                    style: AppTypography.bodyStyle(color: AppColors.mutedDark),
                   ),
                 ),
               ],

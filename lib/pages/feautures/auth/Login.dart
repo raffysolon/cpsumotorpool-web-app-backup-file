@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import '../../services/auth_service.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -153,7 +154,10 @@ class _LoginPageState extends State<LoginPage>
               success
                   ? 'Login successful — welcome back!'
                   : 'Invalid email or password',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: AppTypography.bodyStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -292,13 +296,12 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
           SizedBox(height: wide ? 24 : 16),
-          const Text(
+          Text(
             'CPSU Motor Pool',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: AppTypography.displayTitle(
               color: Colors.white,
               fontSize: 26,
-              fontWeight: FontWeight.w800,
               height: 1.15,
             ),
           ),
@@ -306,11 +309,8 @@ class _LoginPageState extends State<LoginPage>
           Text(
             'Fleet Operations',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: AppTypography.labelCaps(
               color: const Color(0xFFB7E4C7).withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
             ),
           ),
         ],
@@ -350,26 +350,25 @@ class _LoginPageState extends State<LoginPage>
             children: [
               Text(
                 'Motor Pool Login',
-                style: TextStyle(
+                style: AppTypography.displayTitle(
                   color: _textDark,
                   fontSize: wide ? 26 : 24,
-                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Sign in to continue.',
-                style: TextStyle(
+                style: AppTypography.bodyStyle(
                   color: _textMuted,
                   fontSize: 13,
                   height: 1.35,
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Email',
-                style: TextStyle(
+                style: AppTypography.bodyStyle(
                   color: _textDark,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -411,9 +410,9 @@ class _LoginPageState extends State<LoginPage>
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Password',
-                style: TextStyle(
+                style: AppTypography.bodyStyle(
                   color: _textDark,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -487,9 +486,9 @@ class _LoginPageState extends State<LoginPage>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Remember me',
-                    style: TextStyle(
+                    style: AppTypography.bodyStyle(
                       color: _textDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -522,12 +521,10 @@ class _LoginPageState extends State<LoginPage>
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'Log in',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
+                          style: AppTypography.buttonLabel(
+                            color: Colors.white,
                           ),
                         ),
                 ),

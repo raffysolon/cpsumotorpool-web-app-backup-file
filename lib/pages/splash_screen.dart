@@ -93,23 +93,22 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'CPSU MOTORPOOL',
-                        style: TextStyle(
+                        style: AppTypography.displayTitle(
                           color: Colors.white,
                           fontSize: 20,
-                          fontWeight: FontWeight.w800,
                           letterSpacing: 1.4,
                         ),
                       ),
-                      SizedBox(height: 5),
+                      const SizedBox(height: 5),
                       Text(
                         'VEHICLE TRACKING SYSTEM',
-                        style: TextStyle(
-                          color: Color(0xD9FFFFFF),
+                        style: AppTypography.labelCaps(
+                          color: const Color(0xD9FFFFFF),
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 1.1,
@@ -130,12 +129,11 @@ class _SplashScreenState extends State<SplashScreen>
                 },
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Verifying account access…',
-                style: TextStyle(
-                  color: Color(0xB3FFFFFF),
+                style: AppTypography.bodyStyle(
+                  color: const Color(0xB3FFFFFF),
                   fontSize: 12,
-                  fontWeight: FontWeight.w400,
                   letterSpacing: .3,
                 ),
               ),

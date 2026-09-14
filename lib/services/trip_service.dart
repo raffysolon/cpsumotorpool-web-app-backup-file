@@ -116,7 +116,7 @@ class TripService {
     final response = await http.get(
       Uri.parse('$baseUrl/trips/$id/print'),
       headers: headers,
-    );
+    ).timeout(const Duration(seconds: 60));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(

@@ -115,7 +115,8 @@ class _ActiveTripState extends State<ActiveTrip> {
     if (_isOpeningTicket) return;
 
     setState(() => _isOpeningTicket = true);
-    showDialog(
+    var loadingDialogOpen = true;
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const _TripTicketLoadingDialog(),
@@ -134,7 +135,8 @@ class _ActiveTripState extends State<ActiveTrip> {
         SnackBar(content: Text('Unable to open trip ticket: $error')),
       );
     } finally {
-      if (mounted) {
+      if (mounted && loadingDialogOpen) {
+        loadingDialogOpen = false;
         Navigator.of(context, rootNavigator: true).pop();
         setState(() => _isOpeningTicket = false);
       }

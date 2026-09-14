@@ -157,14 +157,14 @@ class ActiveVehiclesMapCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     'Active Vehicles',
-                    style: TextStyle(
+                    style: AppTypography.bodyStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.navy,
@@ -173,7 +173,10 @@ class ActiveVehiclesMapCard extends StatelessWidget {
                 ),
                 Text(
                   '3 on trip',
-                  style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
+                  style: AppTypography.bodyStyle(
+                    fontSize: 13,
+                    color: AppColors.mutedDark,
+                  ),
                 ),
               ],
             ),
@@ -196,7 +199,7 @@ class ActiveVehiclesMapCard extends StatelessWidget {
               onPressed: () => Navigator.pushNamed(context, '/map'),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primaryDark,
-                textStyle: const TextStyle(
+                textStyle: AppTypography.buttonLabel(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),

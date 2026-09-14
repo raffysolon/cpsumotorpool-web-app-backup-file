@@ -66,6 +66,14 @@ flutter:
     - family: CustomFont
       fonts:
         - asset: assets/fonts/fonts.ttf
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-VariableFont_wght.ttf
+    - family: Playfair Display
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-VariableFont_wght.ttf
+        - asset: assets/fonts/PlayfairDisplay-Italic-VariableFont_wght.ttf
+          style: italic
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
