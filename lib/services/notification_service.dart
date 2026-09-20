@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
 class NotificationService {
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
+import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 class TripRequest extends StatelessWidget {
@@ -186,6 +187,7 @@ class _TripRequestContentState extends State<_TripRequestContent> {
 
   Future<void> _openTripTicketPdf(_TripRequestData trip) async {
     if (_isOpeningTicket) return;
+    final PdfWindowHandle? pdfWindow = openPdfWindow();
     setState(() => _isOpeningTicket = true);
     showDialog<void>(
       context: context,
@@ -198,8 +200,13 @@ class _TripRequestContentState extends State<_TripRequestContent> {
         throw Exception('Received empty PDF response.');
       }
 
-      await openPdf(response.bodyBytes, trip.id);
+      if (pdfWindow == null) {
+        await openPdf(response.bodyBytes, trip.id);
+      } else {
+        await openPdfInWindow(pdfWindow, response.bodyBytes, trip.id);
+      }
     } catch (error) {
+      pdfWindow?.close();
       debugPrint('TripRequest._openTripTicketPdf(): error=$error');
       _showError('Error: $error');
     } finally {

@@ -40,7 +40,7 @@ class _SettingsState extends State<Settings> {
     final token = await AuthService.getToken();
     if (token == null) return;
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8000/api/user'),
+      Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     if (!mounted || response.statusCode != 200) return;

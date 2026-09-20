@@ -46,7 +46,7 @@ class _DriverSettingsState extends State<DriverSettings> {
         throw Exception('Authentication token not found');
       }
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/user'),
+        Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',

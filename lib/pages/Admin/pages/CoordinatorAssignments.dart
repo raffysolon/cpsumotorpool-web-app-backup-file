@@ -123,7 +123,7 @@ class _CoordinatorAssignmentsContentState
         ? 'available-drivers'
         : 'available-vehicles';
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8000/api/$availableResource'),
+      Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/$availableResource'),
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
