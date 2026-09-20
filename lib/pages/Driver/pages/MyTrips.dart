@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -11,7 +13,7 @@ class MyTripsPage extends StatefulWidget {
   State<MyTripsPage> createState() => _MyTripsPageState();
 }
 
-class _MyTripsPageState extends State<MyTripsPage> {
+class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
   static const _green = AppColors.primary;
   static const _greenDark = AppColors.primaryDark;
   static const _greenSoft = AppColors.mint;
@@ -24,13 +26,23 @@ class _MyTripsPageState extends State<MyTripsPage> {
 
   bool _isLoading = true;
   bool _isOpeningTicket = false;
+  bool _isPageVisible = true;
+  bool _isRefreshRunning = false;
   String _selectedFilter = 'All';
   List<Trip> _trips = [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTrips();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible || _isRefreshRunning) {
+        return;
+      }
+      _loadTrips(background: true);
+    });
   }
 
   @override
@@ -39,59 +51,116 @@ class _MyTripsPageState extends State<MyTripsPage> {
     _loadTrips();
   }
 
-  Future<void> _loadTrips() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadTrips(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadTrips({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible) {
+        return;
+      }
+      _isRefreshRunning = true;
+    } else if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       final result = await TripService.getMyTrips();
       final rawTrips = result is List ? result : const [];
+      final nextTrips = rawTrips
+          .where((trip) {
+            final map = trip as Map<String, dynamic>;
+            final status =
+                (map['effective_status'] ?? map['status'] ?? 'pending')
+                    .toString()
+                    .trim()
+                    .toLowerCase();
+            return status != 'active' && status != 'completed';
+          })
+          .map<Trip>((trip) {
+            final map = trip as Map<String, dynamic>;
+            final rawStatus =
+                (map['effective_status'] ?? map['status'] ?? 'pending')
+                    .toString();
+            final status = _normalizeStatus(rawStatus);
+            final vehicle = map['vehicle'] is Map
+                ? map['vehicle'] as Map<String, dynamic>
+                : const {};
+            final vehicleLabel =
+                vehicle['plate_no']?.toString() ??
+                vehicle['name']?.toString() ??
+                '—';
+            final scheduledDeparture = map['scheduled_departure']?.toString();
+            return Trip(
+              id: (map['id'] ?? 0).toString(),
+              route: '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
+                  .trim(),
+              status: status,
+              vehicle: vehicleLabel,
+              departureTime: _formatDeparture(scheduledDeparture),
+              scheduledBadge: _scheduledBadgeLabel(
+                status,
+                scheduledDeparture,
+              ),
+            );
+          })
+          .toList();
+
       if (!mounted) return;
-      setState(() {
-        _trips = rawTrips
-            .where((trip) {
-              final map = trip as Map<String, dynamic>;
-              final status =
-                  (map['effective_status'] ?? map['status'] ?? 'pending')
-                      .toString()
-                      .trim()
-                      .toLowerCase();
-              return status != 'active' && status != 'completed';
-            })
-            .map<Trip>((trip) {
-              final map = trip as Map<String, dynamic>;
-              final rawStatus =
-                  (map['effective_status'] ?? map['status'] ?? 'pending')
-                      .toString();
-              final status = _normalizeStatus(rawStatus);
-              final vehicle = map['vehicle'] is Map
-                  ? map['vehicle'] as Map<String, dynamic>
-                  : const {};
-              final vehicleLabel =
-                  vehicle['plate_no']?.toString() ??
-                  vehicle['name']?.toString() ??
-                  '—';
-              final scheduledDeparture = map['scheduled_departure']?.toString();
-              return Trip(
-                id: (map['id'] ?? 0).toString(),
-                route: '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
-                    .trim(),
-                status: status,
-                vehicle: vehicleLabel,
-                departureTime: _formatDeparture(scheduledDeparture),
-                scheduledBadge: _scheduledBadgeLabel(
-                  status,
-                  scheduledDeparture,
-                ),
-              );
-            })
-            .toList();
-        _isLoading = false;
-      });
+
+      if (!background || _hasTripsChanged(nextTrips)) {
+        setState(() {
+          _trips = nextTrips;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
+      if (background) return;
       if (!mounted) return;
       setState(() {
         _trips = [];
         _isLoading = false;
       });
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
+  }
+
+  bool _hasTripsChanged(List<Trip> nextTrips) {
+    if (_trips.length != nextTrips.length) return true;
+    for (var i = 0; i < nextTrips.length; i++) {
+      final current = _trips[i];
+      final next = nextTrips[i];
+      if (current.id != next.id ||
+          current.route != next.route ||
+          current.status != next.status ||
+          current.vehicle != next.vehicle ||
+          current.departureTime != next.departureTime ||
+          current.scheduledBadge != next.scheduledBadge) {
+        return true;
+      }
+    }
+    return false;
   }
 
   String _normalizeStatus(String raw) {

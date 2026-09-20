@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -280,16 +281,9 @@ class GlassCard extends StatelessWidget {
           width: width,
           padding: padding,
           decoration: BoxDecoration(
-            color: AppColors.glassFill,
-            borderRadius: BorderRadius.circular(borderRadius),
+            color: AppColors.brandDeep.withValues(alpha: 0.12),
             border: Border.all(color: AppColors.glassBorder),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.brandDeep.withValues(alpha: 0.12),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
           child: child,
         ),
@@ -306,10 +300,9 @@ class _ShellAtmosphere extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
-      fit: StackFit.expand,
       children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
+        Container(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -378,7 +371,6 @@ class AppShell extends StatelessWidget {
         final narrow = constraints.maxWidth < 900;
         final rail = !narrow && constraints.maxWidth < 1180;
 
-        // Mobile layout: drawer sidebar
         if (narrow) {
           return Scaffold(
             backgroundColor: AppColors.background,
@@ -403,7 +395,6 @@ class AppShell extends StatelessWidget {
           );
         }
 
-        // Desktop layout: fixed sidebar
         return Scaffold(
           backgroundColor: AppColors.background,
           body: _ShellAtmosphere(
@@ -435,17 +426,67 @@ class _SidebarState extends State<_Sidebar> {
   String? _name;
   String _tripRequestCount = '0';
   String _activeTripsCount = '0';
+  Timer? _refreshTimer;
+  bool _isPageVisible = true;
+  bool _isTripCountsRefreshing = false;
+  bool _isNotificationRefreshRunning = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(_SidebarLifecycleObserver(this));
     _loadName();
     _loadTripCounts();
+    _refreshNotificationBell(background: true);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible) return;
+      if (!_isTripCountsRefreshing) {
+        _loadTripCounts(background: true);
+      }
+      if (!_isNotificationRefreshRunning) {
+        _refreshNotificationBell(background: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(_SidebarLifecycleObserver(this));
     super.dispose();
+  }
+
+  void _handleAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isTripCountsRefreshing) {
+        _loadTripCounts(background: true);
+      }
+      if (!_isNotificationRefreshRunning) {
+        _refreshNotificationBell(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  Future<void> _refreshNotificationBell({bool background = false}) async {
+    if (background) {
+      if (_isNotificationRefreshRunning) return;
+      _isNotificationRefreshRunning = true;
+    }
+
+    try {
+      await AdminNotificationsController.instance.refresh();
+    } catch (_) {
+      if (background) return;
+    } finally {
+      if (background) {
+        _isNotificationRefreshRunning = false;
+      }
+    }
   }
 
   Future<void> _loadName() async {
@@ -454,18 +495,21 @@ class _SidebarState extends State<_Sidebar> {
     setState(() => _name = name);
   }
 
-  Future<void> _loadTripCounts() async {
+  Future<void> _loadTripCounts({bool background = false}) async {
+    if (background) {
+      if (_isTripCountsRefreshing) return;
+      _isTripCountsRefreshing = true;
+    }
+
     try {
-          final result = await TripService.getAllTrips();
-        final rawTrips = result is Map && result['data'] is List
+      final result = await TripService.getAllTrips();
+      final rawTrips = result is Map && result['data'] is List
           ? result['data'] as List
           : result is List
           ? result
           : const [];
 
-      if (!mounted) return;
-
-      final pendingCount = rawTrips.whereType<Map>().fold<int>(0, (
+      final nextPendingCount = rawTrips.whereType<Map>().fold<int>(0, (
         total,
         trip,
       ) {
@@ -473,7 +517,7 @@ class _SidebarState extends State<_Sidebar> {
         return total + (status == 'pending' ? 1 : 0);
       });
 
-      final activeCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
+      final nextActiveCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
         final status = (trip['effective_status'] ?? trip['status'] ?? '')
             .toString()
             .trim()
@@ -481,16 +525,29 @@ class _SidebarState extends State<_Sidebar> {
         return total + ((status == 'scheduled' || status == 'active') ? 1 : 0);
       });
 
-      setState(() {
-        _tripRequestCount = pendingCount.toString();
-        _activeTripsCount = activeCount.toString();
-      });
-    } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _tripRequestCount = '0';
-        _activeTripsCount = '0';
-      });
+
+      if (!background ||
+          nextPendingCount.toString() != _tripRequestCount ||
+          nextActiveCount.toString() != _activeTripsCount) {
+        setState(() {
+          _tripRequestCount = nextPendingCount.toString();
+          _activeTripsCount = nextActiveCount.toString();
+        });
+      }
+    } catch (_) {
+      if (background) return;
+      if (!mounted) return;
+      if (_tripRequestCount != '0' || _activeTripsCount != '0') {
+        setState(() {
+          _tripRequestCount = '0';
+          _activeTripsCount = '0';
+        });
+      }
+    } finally {
+      if (background) {
+        _isTripCountsRefreshing = false;
+      }
     }
   }
 
@@ -882,6 +939,17 @@ class _NavItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: compact ? Tooltip(message: label, child: item) : item,
     );
+  }
+}
+
+class _SidebarLifecycleObserver extends WidgetsBindingObserver {
+  _SidebarLifecycleObserver(this._sidebarState);
+
+  final _SidebarState _sidebarState;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _sidebarState._handleAppLifecycleState(state);
   }
 }
 

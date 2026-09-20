@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
@@ -58,21 +60,63 @@ class _ActiveTripData {
   }
 }
 
-class _ActiveTripState extends State<ActiveTrip> {
+class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
   List<_ActiveTripData> _trips = [];
   String _selectedStatus = 'scheduled';
   bool _isLoading = true;
   bool _isOpeningTicket = false;
+  bool _isPageVisible = true;
+  bool _isDialogOpen = false;
+  bool _isRefreshRunning = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AdminNotificationsController.instance.refresh();
     _loadTrips();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible || _isDialogOpen || _isRefreshRunning) {
+        return;
+      }
+      _loadTrips(background: true);
+    });
   }
 
-  Future<void> _loadTrips() async {
-    setState(() => _isLoading = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadTrips(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadTrips({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible || _isDialogOpen) {
+        return;
+      }
+      _isRefreshRunning = true;
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = true);
+      }
+    }
+
     try {
       final result = await TripService.getAllTrips();
       final rawTrips = result is Map && result['data'] is List
@@ -93,17 +137,42 @@ class _ActiveTripState extends State<ActiveTrip> {
           .toList();
 
       if (!mounted) return;
-      setState(() {
-        _trips = activeTrips;
-        _isLoading = false;
-      });
+
+      final changed = _hasTripsChanged(activeTrips);
+      if (!background || changed) {
+        setState(() {
+          _trips = activeTrips;
+          _isLoading = false;
+        });
+      }
     } catch (error) {
+      if (background) return;
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to load active trips: $error')),
       );
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
+  }
+
+  bool _hasTripsChanged(List<_ActiveTripData> nextTrips) {
+    if (_trips.length != nextTrips.length) return true;
+    for (var i = 0; i < nextTrips.length; i++) {
+      final current = _trips[i];
+      final next = nextTrips[i];
+      if (current.id != next.id ||
+          current.driverName != next.driverName ||
+          current.vehicle != next.vehicle ||
+          current.destination != next.destination ||
+          current.status != next.status) {
+        return true;
+      }
+    }
+    return false;
   }
 
   List<_ActiveTripData> get _visibleTrips {
@@ -116,6 +185,7 @@ class _ActiveTripState extends State<ActiveTrip> {
     if (_isOpeningTicket) return;
 
     final PdfWindowHandle? pdfWindow = openPdfWindow();
+    _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
     var loadingDialogOpen = true;
     showDialog<void>(
@@ -147,7 +217,10 @@ class _ActiveTripState extends State<ActiveTrip> {
         Navigator.of(context, rootNavigator: true).pop();
       }
       if (mounted) {
-        setState(() => _isOpeningTicket = false);
+        setState(() {
+          _isOpeningTicket = false;
+          _isDialogOpen = false;
+        });
       }
     }
   }

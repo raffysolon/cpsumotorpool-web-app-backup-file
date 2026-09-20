@@ -1,5 +1,7 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
@@ -105,22 +107,65 @@ class _TripRequestContent extends StatefulWidget {
   State<_TripRequestContent> createState() => _TripRequestContentState();
 }
 
-class _TripRequestContentState extends State<_TripRequestContent> {
+class _TripRequestContentState extends State<_TripRequestContent>
+    with WidgetsBindingObserver {
   List<_TripRequestData> _trips = [];
   bool _isLoading = true;
   bool _isOpeningTicket = false;
+  bool _isPageVisible = true;
+  bool _isDialogOpen = false;
+  bool _isRefreshRunning = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AdminNotificationsController.instance.refresh();
     _loadTrips();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible || _isDialogOpen || _isRefreshRunning) {
+        return;
+      }
+      _loadTrips(background: true);
+    });
   }
 
-  Future<void> _loadTrips() async {
-    debugPrint('TripRequest._loadTrips(): starting fetch');
-    setState(() => _isLoading = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadTrips(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadTrips({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible || _isDialogOpen) {
+        return;
+      }
+      _isRefreshRunning = true;
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = true);
+      }
+    }
+
     try {
+      debugPrint('TripRequest._loadTrips(): starting fetch');
       final result = await TripService.getAllTrips();
       debugPrint('TripRequest._loadTrips(): raw result=$result');
       final rawTrips = result is Map && result['data'] is List
@@ -134,22 +179,53 @@ class _TripRequestContentState extends State<_TripRequestContent> {
         return status == 'pending';
       }).toList();
 
+      final nextTrips = filteredTrips.map((trip) {
+        return _TripRequestData.fromJson(Map<String, dynamic>.from(trip));
+      }).toList();
+
       if (!mounted) return;
-      setState(() {
-        _trips = filteredTrips.map((trip) {
-          return _TripRequestData.fromJson(Map<String, dynamic>.from(trip));
-        }).toList();
-        debugPrint(
-          'TripRequest._loadTrips(): parsed trip count=${_trips.length}',
-        );
-        _isLoading = false;
-      });
+
+      final changed = _hasTripsChanged(nextTrips);
+      if (!background || changed) {
+        setState(() {
+          _trips = nextTrips;
+          _isLoading = false;
+        });
+      }
+      debugPrint(
+        'TripRequest._loadTrips(): parsed trip count=${nextTrips.length}',
+      );
     } catch (error) {
       debugPrint('TripRequest._loadTrips(): error=$error');
+      if (background) return;
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showError('Unable to load trip requests: $error');
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
+  }
+
+  bool _hasTripsChanged(List<_TripRequestData> nextTrips) {
+    if (_trips.length != nextTrips.length) return true;
+    for (var i = 0; i < nextTrips.length; i++) {
+      final current = _trips[i];
+      final next = nextTrips[i];
+      if (current.id != next.id ||
+          current.driverName != next.driverName ||
+          current.vehicle != next.vehicle ||
+          current.origin != next.origin ||
+          current.destination != next.destination ||
+          current.purpose != next.purpose ||
+          current.departure != next.departure ||
+          current.status != next.status ||
+          current.passengers.length != next.passengers.length) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _changeStatus(
@@ -174,6 +250,7 @@ class _TripRequestContentState extends State<_TripRequestContent> {
   }
 
   void _showDetails(_TripRequestData trip) {
+    _isDialogOpen = true;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => _TripDetailDialog(
@@ -182,12 +259,17 @@ class _TripRequestContentState extends State<_TripRequestContent> {
         onDeny: () => _changeStatus(dialogContext, trip, false),
         onViewTicket: () => _openTripTicketPdf(trip),
       ),
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isDialogOpen = false);
+      }
+    });
   }
 
   Future<void> _openTripTicketPdf(_TripRequestData trip) async {
     if (_isOpeningTicket) return;
     final PdfWindowHandle? pdfWindow = openPdfWindow();
+    _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
     showDialog<void>(
       context: context,
@@ -213,6 +295,9 @@ class _TripRequestContentState extends State<_TripRequestContent> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         setState(() => _isOpeningTicket = false);
+      }
+      if (mounted) {
+        setState(() => _isDialogOpen = false);
       }
     }
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -18,7 +20,8 @@ class DriverDashboard extends StatefulWidget {
   State<DriverDashboard> createState() => _DriverDashboardState();
 }
 
-class _DriverDashboardState extends State<DriverDashboard> {
+class _DriverDashboardState extends State<DriverDashboard>
+    with WidgetsBindingObserver {
   static const _green = AppColors.primary;
   static const _greenDark = AppColors.primaryDark;
   static const _greenSoft = Color(0xFFE8F5EC);
@@ -28,6 +31,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   bool _isLoadingActiveTrip = true;
   bool _isLoadingTripCounts = true;
+  bool _isPageVisible = true;
+  bool _isRefreshRunning = false;
   Map<String, dynamic>? _activeTrip;
   int _myTripsCount = 0;
   int _scheduledTripsCount = 0;
@@ -35,14 +40,47 @@ class _DriverDashboardState extends State<DriverDashboard> {
   int _notificationCount = 0;
   String _driverFirstName = 'Driver';
   List<Map<String, dynamic>> _notifications = const [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadActiveTrip();
     _loadTripCounts();
     _loadNotifications();
     _loadDriverName();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible || _isRefreshRunning) {
+        return;
+      }
+      _loadActiveTrip(background: true);
+      _loadTripCounts(background: true);
+      _loadNotifications(background: true);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadActiveTrip(background: true);
+        _loadTripCounts(background: true);
+        _loadNotifications(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadDriverName() async {
@@ -59,27 +97,44 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _loadNotifications();
   }
 
-  Future<void> _loadActiveTrip() async {
+  Future<void> _loadActiveTrip({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible) {
+        return;
+      }
+      _isRefreshRunning = true;
+    }
+
     try {
       final result = await TripService.getMyTrips(status: 'active');
       final trips = result is List ? result : const [];
+      final nextActiveTrip = trips.isNotEmpty ? trips.first as Map<String, dynamic> : null;
+
       if (!mounted) return;
-      setState(() {
-        _activeTrip = trips.isNotEmpty
-            ? trips.first as Map<String, dynamic>
-            : null;
-        _isLoadingActiveTrip = false;
-      });
+      final changed = _activeTrip == null && nextActiveTrip == null
+          ? false
+          : _activeTrip != nextActiveTrip;
+      if (!background || changed) {
+        setState(() {
+          _activeTrip = nextActiveTrip;
+          _isLoadingActiveTrip = false;
+        });
+      }
     } catch (_) {
+      if (background) return;
       if (!mounted) return;
       setState(() {
         _activeTrip = null;
         _isLoadingActiveTrip = false;
       });
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
   }
 
-  Future<void> _loadTripCounts() async {
+  Future<void> _loadTripCounts({bool background = false}) async {
     try {
       final allTrips = await TripService.getMyTrips();
       final scheduledTrips = await TripService.getMyTrips(status: 'scheduled');
@@ -128,14 +183,27 @@ class _DriverDashboardState extends State<DriverDashboard> {
           })
           .toList();
       if (!mounted) return;
-      setState(() {
-        _myTripsCount = visibleMyTrips.length;
-        _scheduledTripsCount = rawScheduledTrips.length;
-        _historyTripsCount = completedTrips.length;
-        _notifications = approvedNotifications;
-        _isLoadingTripCounts = false;
-      });
+
+      final nextMyTripsCount = visibleMyTrips.length;
+      final nextScheduledTripsCount = rawScheduledTrips.length;
+      final nextHistoryTripsCount = completedTrips.length;
+      final nextNotifications = approvedNotifications;
+
+      if (!background ||
+          _myTripsCount != nextMyTripsCount ||
+          _scheduledTripsCount != nextScheduledTripsCount ||
+          _historyTripsCount != nextHistoryTripsCount ||
+          _notifications.length != nextNotifications.length) {
+        setState(() {
+          _myTripsCount = nextMyTripsCount;
+          _scheduledTripsCount = nextScheduledTripsCount;
+          _historyTripsCount = nextHistoryTripsCount;
+          _notifications = nextNotifications;
+          _isLoadingTripCounts = false;
+        });
+      }
     } catch (_) {
+      if (background) return;
       if (!mounted) return;
       setState(() {
         _myTripsCount = 0;
@@ -147,7 +215,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
-  Future<void> _loadNotifications() async {
+  Future<void> _loadNotifications({bool background = false}) async {
     try {
       final countResult = await NotificationService.getUnreadCount();
       final listResult = await NotificationService.getNotifications();
@@ -165,11 +233,17 @@ class _DriverDashboardState extends State<DriverDashboard> {
           .toList();
 
       if (!mounted) return;
-      setState(() {
-        _notificationCount = count;
-        _notifications = notifications;
-      });
+
+      if (!background ||
+          _notificationCount != count ||
+          _notifications.length != notifications.length) {
+        setState(() {
+          _notificationCount = count;
+          _notifications = notifications;
+        });
+      }
     } catch (_) {
+      if (background) return;
       if (!mounted) return;
       setState(() {
         _notificationCount = 0;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -11,7 +13,8 @@ class ScheduleTripPage extends StatefulWidget {
   State<ScheduleTripPage> createState() => _ScheduleTripPageState();
 }
 
-class _ScheduleTripPageState extends State<ScheduleTripPage> {
+class _ScheduleTripPageState extends State<ScheduleTripPage>
+    with WidgetsBindingObserver {
   static const _green = AppColors.primary;
   static const _greenDark = AppColors.primaryDark;
   static const _greenSoft = AppColors.mint;
@@ -22,52 +25,117 @@ class _ScheduleTripPageState extends State<ScheduleTripPage> {
 
   bool _isLoading = true;
   bool _isPrintingTicket = false;
+  bool _isPageVisible = true;
+  bool _isRefreshRunning = false;
   List<Trip> _trips = [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTrips();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_isPageVisible || _isRefreshRunning) {
+        return;
+      }
+      _loadTrips(background: true);
+    });
   }
 
-  Future<void> _loadTrips() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadTrips(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadTrips({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible) {
+        return;
+      }
+      _isRefreshRunning = true;
+    } else if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       final result = await TripService.getMyTrips(status: 'scheduled');
       final rawTrips = result is List ? result : const [];
+      final nextTrips = rawTrips.map<Trip>((trip) {
+        final map = trip as Map<String, dynamic>;
+        final vehicle = map['vehicle'] is Map
+            ? map['vehicle'] as Map<String, dynamic>
+            : const {};
+        final vehicleLabel =
+            vehicle['plate_no']?.toString() ??
+            vehicle['name']?.toString() ??
+            '—';
+        final scheduled = map['scheduled_departure']?.toString();
+        final route = '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
+            .trim();
+        return Trip(
+          id: (map['id'] ?? 0).toString(),
+          route: route.isEmpty ? 'Trip request' : route,
+          status: 'Scheduled',
+          vehicle: vehicleLabel,
+          departureTime: _formatDeparture(scheduled),
+          expectedArrival: '—',
+          scheduledDeparture: DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
+        );
+      }).toList();
+
       if (!mounted) return;
-      setState(() {
-        _trips = rawTrips.map<Trip>((trip) {
-          final map = trip as Map<String, dynamic>;
-          final vehicle = map['vehicle'] is Map
-              ? map['vehicle'] as Map<String, dynamic>
-              : const {};
-          final vehicleLabel =
-              vehicle['plate_no']?.toString() ??
-              vehicle['name']?.toString() ??
-              '—';
-          final scheduled = map['scheduled_departure']?.toString();
-          final route = '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
-              .trim();
-          return Trip(
-            id: (map['id'] ?? 0).toString(),
-            route: route.isEmpty ? 'Trip request' : route,
-            status: 'Scheduled',
-            vehicle: vehicleLabel,
-            departureTime: _formatDeparture(scheduled),
-            expectedArrival: '—',
-            scheduledDeparture:
-                DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
-          );
-        }).toList();
-        _isLoading = false;
-      });
+      if (!background || _hasTripsChanged(nextTrips)) {
+        setState(() {
+          _trips = nextTrips;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
+      if (background) return;
       if (!mounted) return;
       setState(() {
         _trips = [];
         _isLoading = false;
       });
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
+  }
+
+  bool _hasTripsChanged(List<Trip> nextTrips) {
+    if (_trips.length != nextTrips.length) return true;
+    for (var i = 0; i < nextTrips.length; i++) {
+      final current = _trips[i];
+      final next = nextTrips[i];
+      if (current.id != next.id ||
+          current.route != next.route ||
+          current.status != next.status ||
+          current.vehicle != next.vehicle ||
+          current.departureTime != next.departureTime ||
+          current.scheduledDeparture != next.scheduledDeparture) {
+        return true;
+      }
+    }
+    return false;
   }
 
   String _formatDeparture(String? value) {
