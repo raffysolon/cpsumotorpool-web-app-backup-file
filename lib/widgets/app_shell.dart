@@ -597,7 +597,7 @@ class _SidebarState extends State<_Sidebar> {
       ),
       _NavItem(
         icon: Icons.explore_outlined,
-        label: 'Active Trips',
+        label: 'Trips',
         badge: _activeTripsCount,
         compact: compact,
         selected: currentRoute == '/active-trips',

@@ -1,7 +1,6 @@
-// ignore_for_file: file_names
-
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
+import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
@@ -116,6 +115,7 @@ class _ActiveTripState extends State<ActiveTrip> {
   Future<void> _openTripTicket(_ActiveTripData trip) async {
     if (_isOpeningTicket) return;
 
+    final PdfWindowHandle? pdfWindow = openPdfWindow();
     setState(() => _isOpeningTicket = true);
     var loadingDialogOpen = true;
     showDialog<void>(
@@ -130,8 +130,13 @@ class _ActiveTripState extends State<ActiveTrip> {
         throw Exception('Received empty PDF response.');
       }
 
-      await openPdf(response.bodyBytes, trip.id);
+      if (pdfWindow == null) {
+        await openPdf(response.bodyBytes, trip.id);
+      } else {
+        await openPdfInWindow(pdfWindow, response.bodyBytes, trip.id);
+      }
     } catch (error) {
+      pdfWindow?.close();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to open trip ticket: $error')),
@@ -140,6 +145,8 @@ class _ActiveTripState extends State<ActiveTrip> {
       if (mounted && loadingDialogOpen) {
         loadingDialogOpen = false;
         Navigator.of(context, rootNavigator: true).pop();
+      }
+      if (mounted) {
         setState(() => _isOpeningTicket = false);
       }
     }
@@ -153,24 +160,76 @@ class _ActiveTripState extends State<ActiveTrip> {
   Widget build(BuildContext context) {
     return AppShell(
       currentRoute: '/active-trips',
-      child: AdminPageScaffold(
-        title: 'Active Trips',
-        child: RefreshIndicator(
-          onRefresh: _loadTrips,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(),
-                const SizedBox(height: 14),
-                _buildStatusFilters(),
-                const SizedBox(height: 16),
-                _buildTable(),
-              ],
+      child: RefreshIndicator(
+        onRefresh: _loadTrips,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(),
+                    const SizedBox(height: 14),
+                    _buildStatusFilters(),
+                    const SizedBox(height: 16),
+                    _buildTable(),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      borderRadius: 0,
+      child: Row(
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Trips',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.navy,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Province of Negros Occidental — Motorpool Division',
+                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
+              ),
+            ],
+          ),
+          const Spacer(),
+          ValueListenableBuilder<int>(
+            valueListenable: AdminNotificationsController.instance.unreadCount,
+            builder: (context, count, _) {
+              return AdminNotificationBell(
+                count: count,
+                onTap: () => AdminNotificationsController.instance
+                    .showNotificationsDialog(context),
+              );
+            },
+          ),
+          const SizedBox(width: 10),
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.primary,
+            child: Icon(Icons.person, color: Colors.white, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -178,10 +237,10 @@ class _ActiveTripState extends State<ActiveTrip> {
   Widget _buildSectionHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: const [
         Text(
           'Scheduled and Active Trips',
-          style: AppTypography.bodyStyle(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             color: AppColors.navy,
