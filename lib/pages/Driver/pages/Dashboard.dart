@@ -106,9 +106,22 @@ class _DriverDashboardState extends State<DriverDashboard>
     }
 
     try {
-      final result = await TripService.getMyTrips(status: 'active');
+      final result = await TripService.getMyTrips();
       final trips = result is List ? result : const [];
-      final nextActiveTrip = trips.isNotEmpty ? trips.first as Map<String, dynamic> : null;
+      Map<String, dynamic>? nextActiveTrip;
+      for (final trip in trips.whereType<Map>()) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        if (status == 'active') {
+          nextActiveTrip = Map<String, dynamic>.from(trip);
+          break;
+        }
+        if (status == 'scheduled' && nextActiveTrip == null) {
+          nextActiveTrip = Map<String, dynamic>.from(trip);
+        }
+      }
 
       if (!mounted) return;
       final changed = _activeTrip == null && nextActiveTrip == null
@@ -137,11 +150,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   Future<void> _loadTripCounts({bool background = false}) async {
     try {
       final allTrips = await TripService.getMyTrips();
-      final scheduledTrips = await TripService.getMyTrips(status: 'scheduled');
       final rawTrips = allTrips is List ? allTrips : const [];
-      final rawScheduledTrips = scheduledTrips is List
-          ? scheduledTrips
-          : const [];
       final visibleMyTrips = rawTrips.whereType<Map>().where((trip) {
         final status = (trip['effective_status'] ?? trip['status'] ?? '')
             .toString()
@@ -185,7 +194,13 @@ class _DriverDashboardState extends State<DriverDashboard>
       if (!mounted) return;
 
       final nextMyTripsCount = visibleMyTrips.length;
-      final nextScheduledTripsCount = rawScheduledTrips.length;
+      final nextScheduledTripsCount = rawTrips.whereType<Map>().where((trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return status == 'scheduled';
+      }).length;
       final nextHistoryTripsCount = completedTrips.length;
       final nextNotifications = approvedNotifications;
 
@@ -451,10 +466,9 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     final trip = _activeTrip!;
     final vehicle = trip['vehicle'] is Map
-        ? trip['vehicle'] as Map<String, dynamic>
-        : const {};
-    final vehicleLabel =
-        vehicle['plate_no']?.toString() ?? vehicle['name']?.toString() ?? '—';
+      ? Map<String, dynamic>.from(trip['vehicle'] as Map)
+      : const <String, dynamic>{};
+    final vehicleLabel = _vehicleLabel(vehicle);
     final route = _routeText(trip);
     final actionLabel = _activeActionLabel(trip);
 
@@ -534,6 +548,13 @@ class _DriverDashboardState extends State<DriverDashboard>
         ],
       ),
     );
+  }
+
+  String _vehicleLabel(Map<String, dynamic> vehicle) {
+    final name = vehicle['name']?.toString().trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final plateNumber = vehicle['plate_no']?.toString().trim() ?? '';
+    return plateNumber.isNotEmpty ? plateNumber : '—';
   }
 
   @override

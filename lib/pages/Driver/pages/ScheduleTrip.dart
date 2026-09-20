@@ -75,17 +75,20 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
     }
 
     try {
-      final result = await TripService.getMyTrips(status: 'scheduled');
+      final result = await TripService.getMyTrips();
       final rawTrips = result is List ? result : const [];
-      final nextTrips = rawTrips.map<Trip>((trip) {
+      final nextTrips = rawTrips.whereType<Map>().where((trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return status == 'scheduled';
+      }).map<Trip>((trip) {
         final map = trip as Map<String, dynamic>;
         final vehicle = map['vehicle'] is Map
-            ? map['vehicle'] as Map<String, dynamic>
-            : const {};
-        final vehicleLabel =
-            vehicle['plate_no']?.toString() ??
-            vehicle['name']?.toString() ??
-            '—';
+          ? Map<String, dynamic>.from(map['vehicle'] as Map)
+          : const <String, dynamic>{};
+        final vehicleLabel = _vehicleLabel(vehicle);
         final scheduled = map['scheduled_departure']?.toString();
         final route = '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
             .trim();
@@ -119,6 +122,13 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
         _isRefreshRunning = false;
       }
     }
+  }
+
+  String _vehicleLabel(Map<String, dynamic> vehicle) {
+    final name = vehicle['name']?.toString().trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final plateNumber = vehicle['plate_no']?.toString().trim() ?? '';
+    return plateNumber.isNotEmpty ? plateNumber : '—';
   }
 
   bool _hasTripsChanged(List<Trip> nextTrips) {

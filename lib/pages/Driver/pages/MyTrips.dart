@@ -22,7 +22,14 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
   static const _line = AppColors.border;
   static const _background = AppColors.background;
 
-  static const _filters = ['All', 'Pending', 'Approved', 'Denied'];
+  static const _filters = [
+    'All',
+    'Pending',
+    'Approved',
+    'Scheduled',
+    'Active',
+    'Denied',
+  ];
 
   bool _isLoading = true;
   bool _isOpeningTicket = false;
@@ -93,7 +100,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     .toString()
                     .trim()
                     .toLowerCase();
-            return status != 'active' && status != 'completed';
+            return status != 'completed';
           })
           .map<Trip>((trip) {
             final map = trip as Map<String, dynamic>;
@@ -102,12 +109,9 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     .toString();
             final status = _normalizeStatus(rawStatus);
             final vehicle = map['vehicle'] is Map
-                ? map['vehicle'] as Map<String, dynamic>
-                : const {};
-            final vehicleLabel =
-                vehicle['plate_no']?.toString() ??
-                vehicle['name']?.toString() ??
-                '—';
+              ? Map<String, dynamic>.from(map['vehicle'] as Map)
+              : const <String, dynamic>{};
+            final vehicleLabel = _vehicleLabel(vehicle);
             final scheduledDeparture = map['scheduled_departure']?.toString();
             return Trip(
               id: (map['id'] ?? 0).toString(),
@@ -144,6 +148,13 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
         _isRefreshRunning = false;
       }
     }
+  }
+
+  String _vehicleLabel(Map<String, dynamic> vehicle) {
+    final name = vehicle['name']?.toString().trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final plateNumber = vehicle['plate_no']?.toString().trim() ?? '';
+    return plateNumber.isNotEmpty ? plateNumber : '—';
   }
 
   bool _hasTripsChanged(List<Trip> nextTrips) {
