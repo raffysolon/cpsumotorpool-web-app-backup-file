@@ -1,7 +1,10 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
+import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
@@ -29,21 +32,95 @@ abstract class AppColors {
 
 class _CreatedTripRecord {
   final int id;
+  final String source;
   final String origin;
   final String destination;
+  final String purpose;
+  final String scheduledDeparture;
   final String assignedDriver;
   final String assignedVehicle;
   final String status;
+  final List<_PassengerRecord> passengers;
 
   const _CreatedTripRecord({
     required this.id,
+    required this.source,
     required this.origin,
     required this.destination,
+    required this.purpose,
+    required this.scheduledDeparture,
     required this.assignedDriver,
     required this.assignedVehicle,
     required this.status,
+    required this.passengers,
   });
 
+  factory _CreatedTripRecord.fromJson(Map<String, dynamic> json) {
+    final driver = _asMap(json['driver']);
+    final vehicle = _asMap(json['vehicle']);
+    final rawPassengers = json['passengers'] is List
+        ? json['passengers'] as List
+        : const [];
+
+    return _CreatedTripRecord(
+      id: int.tryParse('${json['id'] ?? 0}') ?? 0,
+      source: _text(json['source']),
+      origin: _text(json['origin']),
+      destination: _text(json['destination']),
+      purpose: _text(json['purpose']),
+      scheduledDeparture: _text(json['scheduled_departure']),
+      assignedDriver: _text(driver['name'] ?? json['driver_name']),
+      assignedVehicle: _vehicleText(vehicle),
+      status: _statusText(
+        _text(json['effective_status']).isNotEmpty
+        ? json['effective_status']
+        : json['status'],
+      ),
+      passengers: rawPassengers.whereType<Map>().map((passenger) {
+        return _PassengerRecord(
+          name: _text(passenger['name']),
+          designation: _text(passenger['designation']),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PassengerRecord {
+  final String name;
+  final String designation;
+
+  const _PassengerRecord({required this.name, required this.designation});
+}
+
+Map<String, dynamic> _asMap(dynamic value) {
+  return value is Map ? Map<String, dynamic>.from(value) : {};
+}
+
+String _text(dynamic value) => value?.toString() ?? '';
+
+String _vehicleText(Map<String, dynamic> vehicle) {
+  final name = _text(vehicle['name']);
+  final plate = _text(vehicle['plate_no']);
+  final value = [name, plate].where((item) => item.isNotEmpty).join(' — ');
+  return value.isEmpty ? 'N/A' : value;
+}
+
+String _statusText(dynamic value) {
+  switch (_text(value).trim().toLowerCase()) {
+    case 'scheduled':
+    case 'approved':
+      return 'Scheduled';
+    case 'active':
+      return 'Active';
+    case 'completed':
+      return 'Completed';
+    case 'denied':
+    case 'rejected':
+      return 'Denied';
+    default:
+      return 'Pending';
+  }
 }
 
 class _DriverOption {
@@ -87,60 +164,145 @@ class _AdminCreateTripTicketContent extends StatefulWidget {
 }
 
 class _AdminCreateTripTicketContentState
-    extends State<_AdminCreateTripTicketContent> {
+    extends State<_AdminCreateTripTicketContent>
+    with WidgetsBindingObserver {
   List<_CreatedTripRecord> _trips = [];
   List<_DriverOption> _drivers = [];
   List<_VehicleOption> _vehicles = [];
   bool _isLoading = true;
   bool _isOpeningTicket = false;
+  bool _isPageVisible = true;
+  bool _isDialogOpen = false;
+  bool _isRefreshRunning = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted ||
+          !_isPageVisible ||
+          _isDialogOpen ||
+          _isOpeningTicket ||
+          _isRefreshRunning) {
+        return;
+      }
+      _loadData(background: true);
+    });
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isPageVisible = true;
+      if (!_isRefreshRunning) {
+        _loadData(background: true);
+      }
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _isPageVisible = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadData({bool background = false}) async {
+    if (background) {
+      if (_isRefreshRunning || !mounted || !_isPageVisible) return;
+      _isRefreshRunning = true;
+    } else if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       final results = await Future.wait([
+        TripService.getAllTrips(),
         TripService.getAvailableDrivers(),
         TripService.getAvailableVehicles(),
       ]);
 
-      final driversResult = results[0];
-      final vehiclesResult = results[1];
+      final tripsResult = results[0];
+      final driversResult = results[1];
+      final vehiclesResult = results[2];
+
+      final rawTrips = tripsResult is Map && tripsResult['data'] is List
+          ? tripsResult['data'] as List
+          : tripsResult is List
+          ? tripsResult
+          : const [];
+      final nextTrips = rawTrips.whereType<Map>().where((trip) {
+        return _text(trip['source']).trim().toLowerCase() == 'admin';
+      }).map((trip) {
+        return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
+      }).toList();
 
       final rawDrivers = driversResult is List ? driversResult : const [];
-
       final rawVehicles = vehiclesResult is List ? vehiclesResult : const [];
 
       if (!mounted) return;
-      setState(() {
-        _trips = [];
+      final changed = _hasTripsChanged(nextTrips);
+      final nextDrivers = rawDrivers.whereType<Map>().map((driver) {
+        return _DriverOption.fromJson(Map<String, dynamic>.from(driver));
+      }).toList();
+      final nextVehicles = rawVehicles.whereType<Map>().map((vehicle) {
+        return _VehicleOption.fromJson(Map<String, dynamic>.from(vehicle));
+      }).toList();
 
-        _drivers = rawDrivers.whereType<Map>().map((driver) {
-          return _DriverOption.fromJson(Map<String, dynamic>.from(driver));
-        }).toList();
-
-        _vehicles = rawVehicles.whereType<Map>().map((vehicle) {
-          return _VehicleOption.fromJson(Map<String, dynamic>.from(vehicle));
-        }).toList();
-
-        _isLoading = false;
-      });
+      if (!background || changed) {
+        setState(() {
+          _trips = nextTrips;
+          _drivers = nextDrivers;
+          _vehicles = nextVehicles;
+          _isLoading = false;
+        });
+      }
 
       adminTripTicketCountNotifier.value = 0;
     } catch (error) {
+      if (background) return;
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to load trip data: $error')),
       );
+    } finally {
+      if (background) {
+        _isRefreshRunning = false;
+      }
     }
   }
 
+  bool _hasTripsChanged(List<_CreatedTripRecord> nextTrips) {
+    if (_trips.length != nextTrips.length) return true;
+    for (var i = 0; i < nextTrips.length; i++) {
+      final current = _trips[i];
+      final next = nextTrips[i];
+      if (current.id != next.id ||
+          current.source != next.source ||
+          current.origin != next.origin ||
+          current.destination != next.destination ||
+          current.purpose != next.purpose ||
+          current.scheduledDeparture != next.scheduledDeparture ||
+          current.assignedDriver != next.assignedDriver ||
+          current.assignedVehicle != next.assignedVehicle ||
+          current.status != next.status ||
+          current.passengers.length != next.passengers.length) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _showCreateTripDialog(BuildContext context) {
+    _isDialogOpen = true;
     showDialog(
       context: context,
       builder: (dialogContext) => _CreateTripDialog(
@@ -201,12 +363,18 @@ class _AdminCreateTripTicketContentState
           }
         },
       ),
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isDialogOpen = false);
+      }
+    });
   }
 
   Future<void> _openTripTicket(_CreatedTripRecord trip) async {
     if (_isOpeningTicket) return;
 
+    final PdfWindowHandle? pdfWindow = openPdfWindow();
+    _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
     showDialog(
       context: context,
@@ -219,22 +387,99 @@ class _AdminCreateTripTicketContentState
       if (response.bodyBytes.isEmpty) {
         throw Exception('Received empty PDF response.');
       }
-      await openPdf(response.bodyBytes, trip.id);
+      if (pdfWindow == null) {
+        await openPdf(response.bodyBytes, trip.id);
+      } else {
+        await openPdfInWindow(pdfWindow, response.bodyBytes, trip.id);
+      }
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to open trip ticket: $error')),
-      );
+      pdfWindow?.close();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open trip ticket: $error')),
+        );
+      }
     } finally {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        setState(() => _isOpeningTicket = false);
+        setState(() {
+          _isOpeningTicket = false;
+          _isDialogOpen = false;
+        });
       }
     }
   }
 
-  void _goToMap() {
-    Navigator.pushNamed(context, '/map');
+  void _showDetails(_CreatedTripRecord trip) {
+    _isDialogOpen = true;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Trip Ticket Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow('Driver', trip.assignedDriver),
+              _detailRow('Vehicle', trip.assignedVehicle),
+              _detailRow('Origin', trip.origin),
+              _detailRow('Destination', trip.destination),
+              _detailRow('Purpose', trip.purpose),
+              _detailRow('Scheduled Departure', trip.scheduledDeparture),
+              _detailRow('Status', trip.status),
+              const SizedBox(height: 8),
+              Text(
+                'Passengers (${trip.passengers.length})',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              if (trip.passengers.isEmpty)
+                const Text('No passengers added.')
+              else
+                ...trip.passengers.map(
+                  (passenger) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      passenger.designation.isEmpty
+                          ? passenger.name
+                          : '${passenger.name} — ${passenger.designation}',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isDialogOpen = false);
+      }
+    });
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: AppColors.navy, fontSize: 14),
+          children: [
+            TextSpan(
+              text: '$label\n',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: value.isEmpty ? 'N/A' : value),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -412,9 +657,7 @@ class _AdminCreateTripTicketContentState
 
   Widget _buildTableRow(_CreatedTripRecord trip) {
     const textStyle = TextStyle(color: AppColors.navy, fontSize: 13);
-    final status = trip.status.toLowerCase() == 'approved'
-        ? 'Approved'
-        : trip.status;
+    final status = trip.status;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -442,94 +685,47 @@ class _AdminCreateTripTicketContentState
           Expanded(flex: 2, child: _StatusBadge(status: status)),
           const SizedBox(width: 8),
           SizedBox(
-            width: 120,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF334155)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1E293B).withValues(alpha: 0.18),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: TextButton.icon(
-                onPressed: _isOpeningTicket
-                    ? null
-                    : () => _openTripTicket(trip),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size(0, 38),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                label: const Text(
-                  'View Ticket',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+            width: 260,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showDetails(trip),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('View Details'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 38),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 120,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF334155)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1E293B).withValues(alpha: 0.18),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: TextButton.icon(
-                onPressed: () => _goToMap(),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size(0, 38),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.location_on_outlined, size: 16),
-                label: const Text(
-                  'View on Map',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isOpeningTicket
+                        ? null
+                        : () => _openTripTicket(trip),
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                    label: const Text('View Trip Ticket'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 38),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -545,16 +741,47 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final approved = status.toLowerCase() == 'approved';
-    final textColor = approved
-        ? const Color(0xFF166534)
-        : const Color(0xFF92400E);
-    final bgColor = approved
-        ? const Color(0xFFDCFCE7)
-        : const Color(0xFFFEF3C7);
-    final borderColor = approved
-        ? const Color(0xFF86EFAC)
-        : const Color(0xFFFCD34D);
+    final normalized = status.toLowerCase();
+    final scheduled = normalized == 'scheduled';
+    final active = normalized == 'active';
+    final completed = normalized == 'completed';
+    final denied = normalized == 'denied';
+    final textColor = denied
+      ? const Color(0xFFB91C1C)
+      : active
+      ? const Color(0xFF0F766E)
+      : completed
+      ? const Color(0xFF1D4ED8)
+      : scheduled
+      ? const Color(0xFF166534)
+      : const Color(0xFF92400E);
+    final bgColor = denied
+      ? const Color(0xFFFEE2E2)
+      : active
+      ? const Color(0xFFCCFBF1)
+      : completed
+      ? const Color(0xFFDBEAFE)
+      : scheduled
+      ? const Color(0xFFDCFCE7)
+      : const Color(0xFFFEF3C7);
+    final borderColor = denied
+      ? const Color(0xFFFCA5A5)
+      : active
+      ? const Color(0xFF99F6E4)
+      : completed
+      ? const Color(0xFF93C5FD)
+      : scheduled
+      ? const Color(0xFF86EFAC)
+      : const Color(0xFFFCD34D);
+    final icon = denied
+      ? Icons.cancel_rounded
+      : active
+      ? Icons.trip_origin_rounded
+      : completed
+      ? Icons.check_circle_rounded
+      : scheduled
+      ? Icons.schedule_rounded
+      : Icons.pending_rounded;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -567,7 +794,7 @@ class _StatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            approved ? Icons.check_circle_rounded : Icons.pending_rounded,
+            icon,
             size: 12,
             color: textColor,
           ),
