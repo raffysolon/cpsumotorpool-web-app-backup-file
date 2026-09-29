@@ -1,5 +1,7 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -109,6 +111,17 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   List<_TripHistoryData> _trips = [];
   bool _loading = true;
   bool _downloading = false;
+  
+  // Search and pagination state
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  int _currentPage = 1;
+  int _lastPage = 1;
+  int _totalRecords = 0;
+  final int _perPage = 20;
+  
+  // Debounce timer for search
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -117,34 +130,94 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     _loadTrips();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadTrips() async {
-    setState(() => _loading = true);
+    // Capture search value NOW before any async gap
+    final currentSearch = _searchQuery;
+    final currentPage = _currentPage;
+    
+    debugPrint('🔍 _loadTrips: search="$currentSearch" page=$currentPage');
+    
+    if (mounted) setState(() => _loading = true);
     try {
-      final result = await TripService.getAllTrips();
+      final result = await TripService.getAllTrips(
+        search: currentSearch.isEmpty ? null : currentSearch,
+        status: 'completed',
+        page: currentPage,
+        perPage: _perPage,
+      );
+      
+      debugPrint('✅ API returned: ${result is Map ? result['total'] : 'list'} records');
+
       final rawTrips = result is Map && result['data'] is List
           ? result['data'] as List
           : result is List
           ? result
           : const [];
+      
       final trips = rawTrips
           .whereType<Map>()
-          .where((trip) {
-            return _text(trip['status']).toLowerCase() == 'completed';
-          })
           .map((trip) {
             return _TripHistoryData.fromJson(Map<String, dynamic>.from(trip));
           })
           .toList();
 
+      // Extract pagination metadata
+      int newPage = currentPage;
+      int newLastPage = 1;
+      int newTotal = trips.length;
+      
+      if (result is Map) {
+        newPage = result['current_page'] ?? currentPage;
+        newLastPage = result['last_page'] ?? 1;
+        newTotal = result['total'] ?? trips.length;
+      }
+
       if (!mounted) return;
       setState(() {
         _trips = trips;
         _loading = false;
+        _currentPage = newPage;
+        _lastPage = newLastPage;
+        _totalRecords = newTotal;
       });
     } catch (error) {
+      debugPrint('❌ _loadTrips error: $error');
       if (!mounted) return;
       setState(() => _loading = false);
       _message('Unable to load trip history: $error', error: true);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    // Update state variables directly (not via setState) before calling _loadTrips
+    // This ensures _loadTrips reads the updated values
+    _searchQuery = value;
+    _currentPage = 1;
+    _loadTrips();
+  }
+
+  void _goToPage(int page) {
+    if (page < 1 || page > _lastPage) return;
+    setState(() => _currentPage = page);
+    _loadTrips();
+  }
+
+  void _nextPage() {
+    if (_currentPage < _lastPage) {
+      _goToPage(_currentPage + 1);
+    }
+  }
+
+  void _previousPage() {
+    if (_currentPage > 1) {
+      _goToPage(_currentPage - 1);
     }
   }
 
@@ -304,7 +377,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                         ),
                       ),
                       Text(
-                        '${_trips.length} records',
+                        '$_totalRecords records',
                         style: AppTypography.bodyStyle(
                           fontSize: 13,
                           color: AppColors.mutedDark,
@@ -313,13 +386,93 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  _buildSearchBar(),
+                  const SizedBox(height: 16),
                   _table(),
+                  if (_lastPage > 1) ...[
+                    const SizedBox(height: 16),
+                    _buildPaginationControls(),
+                  ],
                     ],
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: 12,
+      child: Row(
+        children: [
+          const Icon(Icons.search, color: AppColors.mutedDark, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                // Cancel previous timer
+                _debounceTimer?.cancel();
+                
+                // Start new timer - only execute after 500ms of no typing
+                _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+                  _onSearchChanged(value);
+                });
+              },
+              decoration: const InputDecoration(
+                hintText: 'Search by driver name or vehicle...',
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          if (_searchQuery.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 20),
+              onPressed: () {
+                _searchController.clear();
+                _debounceTimer?.cancel();
+                _onSearchChanged('');
+              },
+              tooltip: 'Clear search',
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      borderRadius: 12,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Page $_currentPage of $_lastPage',
+            style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: _currentPage > 1 ? _previousPage : null,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Previous page',
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _currentPage < _lastPage ? _nextPage : null,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Next page',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
