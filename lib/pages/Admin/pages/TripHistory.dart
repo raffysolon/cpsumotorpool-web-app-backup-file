@@ -1,7 +1,6 @@
 // ignore_for_file: file_names
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -138,12 +137,10 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   Future<void> _loadTrips() async {
-    // Capture search value NOW before any async gap
+    // Capture search value synchronously before any async gap
     final currentSearch = _searchQuery;
     final currentPage = _currentPage;
-    
-    debugPrint('🔍 _loadTrips: search="$currentSearch" page=$currentPage');
-    
+
     if (mounted) setState(() => _loading = true);
     try {
       final result = await TripService.getAllTrips(
@@ -152,27 +149,22 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
         page: currentPage,
         perPage: _perPage,
       );
-      
-      debugPrint('✅ API returned: ${result is Map ? result['total'] : 'list'} records');
 
       final rawTrips = result is Map && result['data'] is List
           ? result['data'] as List
           : result is List
           ? result
           : const [];
-      
+
       final trips = rawTrips
           .whereType<Map>()
-          .map((trip) {
-            return _TripHistoryData.fromJson(Map<String, dynamic>.from(trip));
-          })
+          .map((trip) => _TripHistoryData.fromJson(Map<String, dynamic>.from(trip)))
           .toList();
 
-      // Extract pagination metadata
       int newPage = currentPage;
       int newLastPage = 1;
       int newTotal = trips.length;
-      
+
       if (result is Map) {
         newPage = result['current_page'] ?? currentPage;
         newLastPage = result['last_page'] ?? 1;
@@ -180,15 +172,17 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       }
 
       if (!mounted) return;
-      setState(() {
-        _trips = trips;
-        _loading = false;
-        _currentPage = newPage;
-        _lastPage = newLastPage;
-        _totalRecords = newTotal;
-      });
+      // Only apply results if search hasn't changed while we were waiting
+      if (currentSearch == _searchQuery) {
+        setState(() {
+          _trips = trips;
+          _loading = false;
+          _currentPage = newPage;
+          _lastPage = newLastPage;
+          _totalRecords = newTotal;
+        });
+      }
     } catch (error) {
-      debugPrint('❌ _loadTrips error: $error');
       if (!mounted) return;
       setState(() => _loading = false);
       _message('Unable to load trip history: $error', error: true);
@@ -196,10 +190,11 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   void _onSearchChanged(String value) {
-    // Update state variables directly (not via setState) before calling _loadTrips
-    // This ensures _loadTrips reads the updated values
-    _searchQuery = value;
-    _currentPage = 1;
+    // Use setState so the clear button and UI reflect the new search immediately
+    setState(() {
+      _searchQuery = value;
+      _currentPage = 1;
+    });
     _loadTrips();
   }
 
