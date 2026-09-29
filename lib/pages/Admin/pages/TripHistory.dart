@@ -185,7 +185,11 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       _searchQuery = value;
       _currentPage = 1;
     });
-    _loadTrips(searchOverride: value);
+  }
+
+  void _onSearchSubmitted() {
+    _debounceTimer?.cancel();
+    _loadTrips(searchOverride: _searchQuery);
   }
 
   void _goToPage(int page) {
@@ -389,44 +393,55 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
 
   Widget _buildSearchBar() {
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       borderRadius: 12,
       child: Row(
         children: [
           const Icon(Icons.search, color: AppColors.mutedDark, size: 20),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _searchController,
-              onSubmitted: (value) {
-                // Search fires when user presses Enter
-                _debounceTimer?.cancel();
-                _onSearchChanged(value);
-              },
-              onChanged: (value) {
-                // Debounce: cancel old timer, start new one
-                _debounceTimer?.cancel();
-                _debounceTimer = Timer(const Duration(milliseconds: 800), () {
-                  _onSearchChanged(value);
-                });
-              },
+              onChanged: _onSearchChanged,
+              onSubmitted: (_) => _onSearchSubmitted(),
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Search by driver name or vehicle...',
                 border: InputBorder.none,
                 isDense: true,
-                suffixIcon: _searchController.text.isNotEmpty
+                suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18),
+                        color: AppColors.mutedDark,
                         onPressed: () {
                           _searchController.clear();
                           _debounceTimer?.cancel();
-                          _onSearchChanged('');
+                          setState(() {
+                            _searchQuery = '';
+                            _currentPage = 1;
+                          });
+                          _loadTrips(searchOverride: '');
                         },
-                        tooltip: 'Clear search',
+                        tooltip: 'Clear',
                       )
                     : null,
               ),
               style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: _onSearchSubmitted,
+            icon: const Icon(Icons.search, size: 16),
+            label: const Text('Search'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
