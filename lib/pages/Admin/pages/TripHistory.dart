@@ -136,17 +136,16 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     super.dispose();
   }
 
-  Future<void> _loadTrips() async {
-    // Capture search value synchronously before any async gap
-    final currentSearch = _searchQuery;
-    final currentPage = _currentPage;
+  Future<void> _loadTrips({String? searchOverride}) async {
+    // Use the override if provided (from search), otherwise use current state
+    final search = searchOverride ?? _searchQuery;
 
     if (mounted) setState(() => _loading = true);
     try {
       final result = await TripService.getAllTrips(
-        search: currentSearch.isEmpty ? null : currentSearch,
+        search: search.trim().isEmpty ? null : search.trim(),
         status: 'completed',
-        page: currentPage,
+        page: _currentPage,
         perPage: _perPage,
       );
 
@@ -161,27 +160,19 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
           .map((trip) => _TripHistoryData.fromJson(Map<String, dynamic>.from(trip)))
           .toList();
 
-      int newPage = currentPage;
-      int newLastPage = 1;
-      int newTotal = trips.length;
-
-      if (result is Map) {
-        newPage = result['current_page'] ?? currentPage;
-        newLastPage = result['last_page'] ?? 1;
-        newTotal = result['total'] ?? trips.length;
-      }
-
       if (!mounted) return;
-      // Only apply results if search hasn't changed while we were waiting
-      if (currentSearch == _searchQuery) {
-        setState(() {
-          _trips = trips;
-          _loading = false;
-          _currentPage = newPage;
-          _lastPage = newLastPage;
-          _totalRecords = newTotal;
-        });
-      }
+      setState(() {
+        _trips = trips;
+        _loading = false;
+        if (result is Map) {
+          _currentPage = result['current_page'] ?? _currentPage;
+          _lastPage = result['last_page'] ?? 1;
+          _totalRecords = result['total'] ?? trips.length;
+        } else {
+          _lastPage = 1;
+          _totalRecords = trips.length;
+        }
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -190,17 +181,15 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   void _onSearchChanged(String value) {
-    // Use setState so the clear button and UI reflect the new search immediately
-    setState(() {
-      _searchQuery = value;
-      _currentPage = 1;
-    });
-    _loadTrips();
+    _searchQuery = value;
+    _currentPage = 1;
+    // Pass search directly — avoids relying on setState timing
+    _loadTrips(searchOverride: value);
   }
 
   void _goToPage(int page) {
     if (page < 1 || page > _lastPage) return;
-    setState(() => _currentPage = page);
+    _currentPage = page;
     _loadTrips();
   }
 
@@ -352,7 +341,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     return Stack(
       children: [
         RefreshIndicator(
-          onRefresh: _loadTrips,
+          onRefresh: () => _loadTrips(),
           child: AdminPageScaffold(
             title: 'Trip History',
             child: SingleChildScrollView(
@@ -431,7 +420,9 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
               onPressed: () {
                 _searchController.clear();
                 _debounceTimer?.cancel();
-                _onSearchChanged('');
+                _searchQuery = '';
+                _currentPage = 1;
+                _loadTrips(searchOverride: '');
               },
               tooltip: 'Clear search',
             ),
