@@ -181,9 +181,10 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   void _onSearchChanged(String value) {
-    _searchQuery = value;
-    _currentPage = 1;
-    // Pass search directly — avoids relying on setState timing
+    setState(() {
+      _searchQuery = value;
+      _currentPage = 1;
+    });
     _loadTrips(searchOverride: value);
   }
 
@@ -397,35 +398,37 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              onChanged: (value) {
-                // Cancel previous timer
+              onSubmitted: (value) {
+                // Search fires when user presses Enter
                 _debounceTimer?.cancel();
-                
-                // Start new timer - only execute after 500ms of no typing
-                _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+                _onSearchChanged(value);
+              },
+              onChanged: (value) {
+                // Debounce: cancel old timer, start new one
+                _debounceTimer?.cancel();
+                _debounceTimer = Timer(const Duration(milliseconds: 800), () {
                   _onSearchChanged(value);
                 });
               },
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search by driver name or vehicle...',
                 border: InputBorder.none,
                 isDense: true,
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _debounceTimer?.cancel();
+                          _onSearchChanged('');
+                        },
+                        tooltip: 'Clear search',
+                      )
+                    : null,
               ),
               style: const TextStyle(fontSize: 14),
             ),
           ),
-          if (_searchQuery.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear, size: 20),
-              onPressed: () {
-                _searchController.clear();
-                _debounceTimer?.cancel();
-                _searchQuery = '';
-                _currentPage = 1;
-                _loadTrips(searchOverride: '');
-              },
-              tooltip: 'Clear search',
-            ),
         ],
       ),
     );
