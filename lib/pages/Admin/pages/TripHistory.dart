@@ -1,6 +1,5 @@
 // ignore_for_file: file_names
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -111,16 +110,11 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   bool _loading = true;
   bool _downloading = false;
   
-  // Search and pagination state
-  final _searchController = TextEditingController();
-  String _searchQuery = '';
+  // Pagination state
   int _currentPage = 1;
   int _lastPage = 1;
   int _totalRecords = 0;
   final int _perPage = 20;
-  
-  // Debounce timer for search
-  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -131,19 +125,13 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _debounceTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadTrips({String? searchOverride}) async {
-    // Use the override if provided (from search), otherwise use current state
-    final search = searchOverride ?? _searchQuery;
-
+  Future<void> _loadTrips() async {
     if (mounted) setState(() => _loading = true);
     try {
       final result = await TripService.getAllTrips(
-        search: search.trim().isEmpty ? null : search.trim(),
         status: 'completed',
         page: _currentPage,
         perPage: _perPage,
@@ -178,18 +166,6 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       setState(() => _loading = false);
       _message('Unable to load trip history: $error', error: true);
     }
-  }
-
-  void _onSearchChanged(String value) {
-    setState(() {
-      _searchQuery = value;
-      _currentPage = 1;
-    });
-  }
-
-  void _onSearchSubmitted() {
-    _debounceTimer?.cancel();
-    _loadTrips(searchOverride: _searchQuery);
   }
 
   void _goToPage(int page) {
@@ -375,8 +351,6 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildSearchBar(),
-                  const SizedBox(height: 16),
                   _table(),
                   if (_lastPage > 1) ...[
                     const SizedBox(height: 16),
@@ -391,63 +365,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      borderRadius: 12,
-      child: Row(
-        children: [
-          const Icon(Icons.search, color: AppColors.mutedDark, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              onSubmitted: (_) => _onSearchSubmitted(),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search by driver name or vehicle...',
-                border: InputBorder.none,
-                isDense: true,
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        color: AppColors.mutedDark,
-                        onPressed: () {
-                          _searchController.clear();
-                          _debounceTimer?.cancel();
-                          setState(() {
-                            _searchQuery = '';
-                            _currentPage = 1;
-                          });
-                          _loadTrips(searchOverride: '');
-                        },
-                        tooltip: 'Clear',
-                      )
-                    : null,
-              ),
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: _onSearchSubmitted,
-            icon: const Icon(Icons.search, size: 16),
-            label: const Text('Search'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildPaginationControls() {
     return GlassCard(

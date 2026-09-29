@@ -26,6 +26,19 @@ class TripService {
       return jsonDecode(response.body);
     }
 
+    // Handle specific error codes with user-friendly messages
+    if (response.statusCode == 401) {
+      throw Exception('Your session has expired. Please log in again.');
+    }
+    
+    if (response.statusCode == 403) {
+      throw Exception('You do not have permission to perform this action.');
+    }
+    
+    if (response.statusCode == 429) {
+      throw Exception('Too many requests. Please wait a moment and try again.');
+    }
+
     throw Exception(
       'Request failed (${response.statusCode}): ${response.body}',
     );
@@ -43,12 +56,40 @@ class TripService {
     return _parseResponse(response);
   }
 
-  static Future<dynamic> getAllTrips() async {
-    debugPrint('TripService.getAllTrips(): GET $baseUrl/trips');
-    final response = await http.get(
-      Uri.parse('$baseUrl/trips'),
-      headers: await _headers(),
-    );
+  static Future<dynamic> getAllTrips({
+    String? search,
+    String? status,
+    String? dateFrom,
+    String? dateTo,
+    int? driverId,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'per_page': perPage.toString(),
+    };
+    
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+    if (dateFrom != null && dateFrom.isNotEmpty) {
+      queryParams['date_from'] = dateFrom;
+    }
+    if (dateTo != null && dateTo.isNotEmpty) {
+      queryParams['date_to'] = dateTo;
+    }
+    if (driverId != null) {
+      queryParams['driver_id'] = driverId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/trips').replace(queryParameters: queryParams);
+    debugPrint('TripService.getAllTrips(): GET $uri');
+    
+    final response = await http.get(uri, headers: await _headers());
 
     debugPrint(
       'TripService.getAllTrips(): status=${response.statusCode} body=${response.body}',

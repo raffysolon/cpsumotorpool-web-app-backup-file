@@ -557,7 +557,13 @@ class _SidebarState extends State<_Sidebar> {
       Navigator.pop(context);
     }
     if (current == route) return;
-    Navigator.pushReplacementNamed(context, route);
+    
+    // Use pushNamedAndRemoveUntil for smooth navigation without flash
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      route,
+      (existingRoute) => false, // Clear all previous routes to prevent stack buildup
+    );
   }
 
   void _openRequestLetters(BuildContext context) {
@@ -619,7 +625,9 @@ class _SidebarState extends State<_Sidebar> {
     );
 
     if (shouldLogout == true && context.mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
+      await AuthService.logout();
+      if (!context.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
     }
   }
 
@@ -634,8 +642,8 @@ class _SidebarState extends State<_Sidebar> {
         icon: Icons.grid_view_rounded,
         label: 'Dashboard',
         compact: compact,
-        selected: currentRoute == '/',
-        onTap: () => _go(context, '/'),
+        selected: currentRoute == '/' || currentRoute == '/dashboard',
+        onTap: () => _go(context, '/dashboard'), // ✅ Go directly to /dashboard
       ),
       _NavItem(
         icon: Icons.assignment_outlined,

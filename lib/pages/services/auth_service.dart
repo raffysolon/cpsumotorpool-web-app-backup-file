@@ -39,6 +39,26 @@ class AuthService {
     return await _storage.read(key: 'name');
   }
 
+  /// Check if user is currently logged in
+  static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  /// Get stored user data
+  static Future<Map<String, dynamic>?> getUserData() async {
+    final role = await getRole();
+    final name = await getName();
+    
+    if (role != null) {
+      return {
+        'role': role,
+        'name': name,
+      };
+    }
+    return null;
+  }
+
   static Future<void> logout() async {
     await _storage.deleteAll();
   }

@@ -257,7 +257,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
         trip: trip,
         onApprove: () => _changeStatus(dialogContext, trip, true),
         onDeny: () => _changeStatus(dialogContext, trip, false),
-        onViewTicket: () => _openTripTicketPdf(trip),
+        onViewTicket: () => _openTripTicketPdf(dialogContext, trip),
       ),
     ).then((_) {
       if (mounted) {
@@ -266,22 +266,23 @@ class _TripRequestContentState extends State<_TripRequestContent>
     });
   }
 
-  Future<void> _openTripTicketPdf(_TripRequestData trip) async {
+  Future<void> _openTripTicketPdf(BuildContext dialogContext, _TripRequestData trip) async {
     if (_isOpeningTicket) return;
-    final PdfWindowHandle? pdfWindow = openPdfWindow();
-    _isDialogOpen = true;
+    
+    // Close the details dialog first
+    Navigator.pop(dialogContext);
+    
     setState(() => _isOpeningTicket = true);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _TripTicketLoadingDialog(),
-    );
+    
+    PdfWindowHandle? pdfWindow;
     try {
       final response = await TripService.getTripTicket(trip.id);
       if (response.bodyBytes.isEmpty) {
         throw Exception('Received empty PDF response.');
       }
 
+      // Open window only after PDF is downloaded
+      pdfWindow = openPdfWindow();
       if (pdfWindow == null) {
         await openPdf(response.bodyBytes, trip.id);
       } else {
@@ -293,7 +294,6 @@ class _TripRequestContentState extends State<_TripRequestContent>
       _showError('Error: $error');
     } finally {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
         setState(() => _isOpeningTicket = false);
       }
       if (mounted) {
@@ -339,37 +339,25 @@ class _TripRequestContentState extends State<_TripRequestContent>
         ),
         if (_isOpeningTicket)
           Positioned.fill(
-            child: ColoredBox(
-              color: Color(0x66000000),
+            child: Container(
+              color: Colors.black54,
               child: Center(
-                child: GlassCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-                  borderRadius: 16,
-                  child: Padding(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 42,
-                          height: 42,
-                          child: CircularProgressIndicator(strokeWidth: 4),
-                        ),
-                        SizedBox(height: 18),
-                        Text(
-                          'Generating trip ticket...',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'Please wait',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 14),
+                      Text(
+                        'Generating trip ticket...',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -626,39 +614,6 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _TripTicketLoadingDialog extends StatelessWidget {
-  const _TripTicketLoadingDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        borderRadius: 16,
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: CircularProgressIndicator(strokeWidth: 4),
-              ),
-              SizedBox(height: 18),
-              Text(
-                'Generating trip ticket...',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              SizedBox(height: 6),
-              Text('Please wait', style: TextStyle(color: Colors.black54)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _TripDetailDialog extends StatelessWidget {
   const _TripDetailDialog({

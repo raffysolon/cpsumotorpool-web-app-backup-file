@@ -25,16 +25,41 @@ class DriverService {
       return jsonDecode(response.body);
     }
 
+    // Handle specific error codes with user-friendly messages
+    if (response.statusCode == 401) {
+      throw Exception('Your session has expired. Please log in again.');
+    }
+    
+    if (response.statusCode == 403) {
+      throw Exception('You do not have permission to perform this action.');
+    }
+    
+    if (response.statusCode == 429) {
+      throw Exception('Too many requests. Please wait a moment and try again.');
+    }
+
     throw Exception(
       'Request failed (${response.statusCode}): ${response.body}',
     );
   }
 
-  static Future<dynamic> getDrivers() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/drivers'),
-      headers: await _headers(),
-    );
+  static Future<dynamic> getDrivers({
+    String? search,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'per_page': perPage.toString(),
+    };
+    
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+
+    final uri = Uri.parse('$baseUrl/drivers').replace(queryParameters: queryParams);
+    
+    final response = await http.get(uri, headers: await _headers());
 
     return _parseResponse(response);
   }

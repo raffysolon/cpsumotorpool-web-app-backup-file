@@ -184,22 +184,18 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
   Future<void> _openTripTicket(_ActiveTripData trip) async {
     if (_isOpeningTicket) return;
 
-    final PdfWindowHandle? pdfWindow = openPdfWindow();
     _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
-    var loadingDialogOpen = true;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _TripTicketLoadingDialog(),
-    );
 
+    PdfWindowHandle? pdfWindow;
     try {
       final response = await TripService.getTripTicket(trip.id);
       if (response.bodyBytes.isEmpty) {
         throw Exception('Received empty PDF response.');
       }
 
+      // Open window only after PDF is downloaded
+      pdfWindow = openPdfWindow();
       if (pdfWindow == null) {
         await openPdf(response.bodyBytes, trip.id);
       } else {
@@ -212,10 +208,6 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
         SnackBar(content: Text('Unable to open trip ticket: $error')),
       );
     } finally {
-      if (mounted && loadingDialogOpen) {
-        loadingDialogOpen = false;
-        Navigator.of(context, rootNavigator: true).pop();
-      }
       if (mounted) {
         setState(() {
           _isOpeningTicket = false;
@@ -233,30 +225,72 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return AppShell(
       currentRoute: '/active-trips',
-      child: RefreshIndicator(
-        onRefresh: _loadTrips,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader(),
-                    const SizedBox(height: 14),
-                    _buildStatusFilters(),
-                    const SizedBox(height: 16),
-                    _buildTable(),
-                  ],
+      child: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _loadTrips,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(),
+                        const SizedBox(height: 14),
+                        _buildStatusFilters(),
+                        const SizedBox(height: 16),
+                        _buildTable(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isOpeningTicket)
+            Positioned.fill(
+              child: AbsorbPointer(
+                absorbing: true,
+                child: ColoredBox(
+                  color: const Color(0xE6FFFFFF), // Light background (90% white opacity)
+                  child: Center(
+                    child: GlassCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+                      borderRadius: 16,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          SizedBox(
+                            width: 42,
+                            height: 42,
+                            child: CircularProgressIndicator(strokeWidth: 4),
+                          ),
+                          SizedBox(height: 18),
+                          Text(
+                            'Generating trip ticket...',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Please wait',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

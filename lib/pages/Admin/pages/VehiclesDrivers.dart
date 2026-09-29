@@ -22,6 +22,18 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   final _drivers = <_DriverData>[];
   bool _isLoading = true;
 
+  // Pagination state for vehicles
+  int _vehicleCurrentPage = 1;
+  int _vehicleLastPage = 1;
+  int _vehicleTotalRecords = 0;
+  final int _vehiclePerPage = 20;
+
+  // Pagination state for drivers
+  int _driverCurrentPage = 1;
+  int _driverLastPage = 1;
+  int _driverTotalRecords = 0;
+  final int _driverPerPage = 20;
+
   @override
   void initState() {
     super.initState();
@@ -30,12 +42,26 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_onTabChanged)
+      ..dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        DriverService.getDrivers(),
-        VehicleService.getVehicles(),
+        DriverService.getDrivers(
+          page: _driverCurrentPage,
+          perPage: _driverPerPage,
+        ),
+        VehicleService.getVehicles(
+          page: _vehicleCurrentPage,
+          perPage: _vehiclePerPage,
+        ),
       ]);
       if (!mounted) return;
       setState(() {
@@ -45,6 +71,29 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         _vehicles
           ..clear()
           ..addAll(_parseVehicles(results[1]));
+        
+        // Extract pagination metadata for drivers
+        if (results[0] is Map) {
+          final driverData = results[0] as Map<String, dynamic>;
+          _driverCurrentPage = driverData['current_page'] ?? _driverCurrentPage;
+          _driverLastPage = driverData['last_page'] ?? 1;
+          _driverTotalRecords = driverData['total'] ?? _drivers.length;
+        } else {
+          _driverTotalRecords = _drivers.length;
+          _driverLastPage = 1;
+        }
+
+        // Extract pagination metadata for vehicles
+        if (results[1] is Map) {
+          final vehicleData = results[1] as Map<String, dynamic>;
+          _vehicleCurrentPage = vehicleData['current_page'] ?? _vehicleCurrentPage;
+          _vehicleLastPage = vehicleData['last_page'] ?? 1;
+          _vehicleTotalRecords = vehicleData['total'] ?? _vehicles.length;
+        } else {
+          _vehicleTotalRecords = _vehicles.length;
+          _vehicleLastPage = 1;
+        }
+
         _isLoading = false;
       });
     } catch (error) {
@@ -54,6 +103,18 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         SnackBar(content: Text('Unable to load drivers and vehicles: $error')),
       );
     }
+  }
+
+  void _goToVehiclePage(int page) {
+    if (page < 1 || page > _vehicleLastPage) return;
+    setState(() => _vehicleCurrentPage = page);
+    _loadData();
+  }
+
+  void _goToDriverPage(int page) {
+    if (page < 1 || page > _driverLastPage) return;
+    setState(() => _driverCurrentPage = page);
+    _loadData();
   }
 
   List<_DriverData> _parseDrivers(dynamic response) {
@@ -100,14 +161,6 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
 
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _tabController
-      ..removeListener(_onTabChanged)
-      ..dispose();
-    super.dispose();
   }
 
   @override
@@ -207,7 +260,21 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     return _buildTabContent(
       title: 'Fleet vehicles',
       subtitle: 'Manage the vehicles available to the motorpool.',
-      child: _isLoading ? _loadingIndicator() : _buildVehicleTable(),
+      recordCount: _vehicleTotalRecords,
+      child: Column(
+        children: [
+          _isLoading ? _loadingIndicator() : _buildVehicleTable(),
+          if (_vehicleLastPage > 1) ...[
+            const SizedBox(height: 16),
+            _buildPaginationControls(
+              currentPage: _vehicleCurrentPage,
+              lastPage: _vehicleLastPage,
+              onPrevious: () => _goToVehiclePage(_vehicleCurrentPage - 1),
+              onNext: () => _goToVehiclePage(_vehicleCurrentPage + 1),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -215,7 +282,21 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     return _buildTabContent(
       title: 'Registered drivers',
       subtitle: 'Manage driver accounts and licensing information.',
-      child: _isLoading ? _loadingIndicator() : _buildDriverTable(),
+      recordCount: _driverTotalRecords,
+      child: Column(
+        children: [
+          _isLoading ? _loadingIndicator() : _buildDriverTable(),
+          if (_driverLastPage > 1) ...[
+            const SizedBox(height: 16),
+            _buildPaginationControls(
+              currentPage: _driverCurrentPage,
+              lastPage: _driverLastPage,
+              onPrevious: () => _goToDriverPage(_driverCurrentPage - 1),
+              onNext: () => _goToDriverPage(_driverCurrentPage + 1),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -229,6 +310,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   Widget _buildTabContent({
     required String title,
     required String subtitle,
+    required int recordCount,
     required Widget child,
   }) {
     return SingleChildScrollView(
@@ -239,24 +321,75 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '$recordCount records',
+                    style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               child,
             ],
           ),
         ),
+      ),
+    );
+  }
+
+
+  Widget _buildPaginationControls({
+    required int currentPage,
+    required int lastPage,
+    required VoidCallback onPrevious,
+    required VoidCallback onNext,
+  }) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      borderRadius: 12,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Page $currentPage of $lastPage',
+            style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: currentPage > 1 ? onPrevious : null,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Previous page',
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: currentPage < lastPage ? onNext : null,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Next page',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

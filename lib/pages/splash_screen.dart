@@ -69,13 +69,26 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F3D24), // Dark green
+              Color(0xFF176E30),
+              Color(0xFF1F8A3D),
+              Color(0xFF0B2E1A),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -137,7 +150,8 @@ class _SplashScreenState extends State<SplashScreen>
                   letterSpacing: .3,
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
