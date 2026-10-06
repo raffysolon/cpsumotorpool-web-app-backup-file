@@ -27,46 +27,7 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
-    _loadPendingRequests();
     _loadDashboardStats();
-    AdminNotificationsController.instance.refresh();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadDashboardStats();
-    AdminNotificationsController.instance.refresh();
-  }
-
-  Future<void> _loadPendingRequests() async {
-    try {
-      final result = await TripService.getAllTrips();
-      final rawTrips = result is Map && result['data'] is List
-          ? result['data'] as List
-          : result is List
-              ? result
-              : const [];
-
-      final pendingTrips = rawTrips.whereType<Map>().where((trip) {
-        final status = (trip['status'] ?? '').toString().trim().toLowerCase();
-        return status == 'pending';
-      }).toList();
-
-      final count = pendingTrips.length;
-
-      if (!mounted) return;
-      setState(() {
-        _pendingRequests = count;
-        _isLoadingPending = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _pendingRequests = 0;
-        _isLoadingPending = false;
-      });
-    }
   }
 
   Future<void> _loadDashboardStats() async {
@@ -103,12 +64,18 @@ class _DashboardState extends State<Dashboard> {
         final status = (trip['status'] ?? '').toString().trim().toLowerCase();
         return total + ((status == 'approved' || status == 'active') ? 1 : 0);
       });
+      final pendingTripCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
+        final status = (trip['status'] ?? '').toString().trim().toLowerCase();
+        return total + (status == 'pending' ? 1 : 0);
+      });
 
       final vehicleCount = rawVehicles.whereType<Map>().length;
       final driverCount = rawDrivers.whereType<Map>().length;
 
       if (!mounted) return;
       setState(() {
+        _pendingRequests = pendingTripCount;
+        _isLoadingPending = false;
         _activeTrips = activeTripCount;
         _totalVehicles = vehicleCount;
         _totalDrivers = driverCount;
@@ -117,6 +84,8 @@ class _DashboardState extends State<Dashboard> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _pendingRequests = 0;
+        _isLoadingPending = false;
         _activeTrips = 0;
         _totalVehicles = 0;
         _totalDrivers = 0;
@@ -297,4 +266,3 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-

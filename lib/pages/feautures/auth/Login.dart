@@ -124,10 +124,18 @@ class _LoginPageState extends State<LoginPage>
         context,
         role == 'admin' ? '/' : '/driver-dashboard',
       );
+    } on LoginException catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showLoginSnackBar(success: false, error: error.message);
+      _restorePasswordFocus();
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showLoginSnackBar(success: false);
+      _showLoginSnackBar(
+        success: false,
+        error: 'Login failed. Check your connection and try again.',
+      );
       _restorePasswordFocus();
     } finally {
       if (mounted && _isLoading) {
@@ -136,7 +144,7 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  void _showLoginSnackBar({required bool success}) {
+  void _showLoginSnackBar({required bool success, String? error}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: success
@@ -153,7 +161,7 @@ class _LoginPageState extends State<LoginPage>
             Text(
               success
                   ? 'Login successful — welcome back!'
-                  : 'Invalid email or password',
+                  : error ?? 'Login failed.',
               style: AppTypography.bodyStyle(
                 fontWeight: FontWeight.w500,
                 color: Colors.white,
@@ -671,4 +679,3 @@ class _RoadMapPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

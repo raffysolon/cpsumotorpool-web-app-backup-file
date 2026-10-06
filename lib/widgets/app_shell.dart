@@ -557,13 +557,7 @@ class _SidebarState extends State<_Sidebar> {
       Navigator.pop(context);
     }
     if (current == route) return;
-    
-    // Use pushNamedAndRemoveUntil for smooth navigation without flash
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      route,
-      (existingRoute) => false, // Clear all previous routes to prevent stack buildup
-    );
+    Navigator.pushReplacementNamed(context, route);
   }
 
   void _openRequestLetters(BuildContext context) {
@@ -642,8 +636,8 @@ class _SidebarState extends State<_Sidebar> {
         icon: Icons.grid_view_rounded,
         label: 'Dashboard',
         compact: compact,
-        selected: currentRoute == '/' || currentRoute == '/dashboard',
-        onTap: () => _go(context, '/dashboard'), // ✅ Go directly to /dashboard
+        selected: currentRoute == '/',
+        onTap: () => _go(context, '/'),
       ),
       _NavItem(
         icon: Icons.assignment_outlined,

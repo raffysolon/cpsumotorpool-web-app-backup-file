@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'widgets/app_shell.dart';
-import 'pages/services/auth_service.dart';
 
 // ─── Page Imports ───
 import 'pages/Admin/pages/Activetrip.dart';
@@ -43,24 +42,13 @@ class MyApp extends StatelessWidget {
         filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle()),
         outlinedButtonTheme: OutlinedButtonThemeData(style: _outlinedButtonStyle()),
         textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
-        // ✅ Disable page transitions to prevent movement/shift
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: _NoTransitionBuilder(),
-            TargetPlatform.iOS: _NoTransitionBuilder(),
-            TargetPlatform.linux: _NoTransitionBuilder(),
-            TargetPlatform.macOS: _NoTransitionBuilder(),
-            TargetPlatform.windows: _NoTransitionBuilder(),
-          },
-        ),
       ),
       // ─── Route Definitions ───
-      initialRoute: '/',
+      initialRoute: '/login',
       routes: {
-        '/': (context) => const AuthGate(),
         '/splash': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),
-        '/dashboard': (context) => _RoleGuard(
+        '/': (context) => _RoleGuard(
           role: 'admin',
           child: const Dashboard(),
         ),
@@ -198,91 +186,9 @@ class _RoleGuardState extends State<_RoleGuard> {
 
   @override
   Widget build(BuildContext context) {
-    // Don't show loading indicator, just show empty transparent screen
-    // This prevents the white flash
     if (_isChecking) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF8FAFC), // Match app background
-        body: SizedBox.shrink(), // Empty, no loading indicator
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return widget.child;
-  }
-}
-
-
-// ─── Authentication Gate ───
-/// Checks if user is logged in and redirects accordingly
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: AuthService.isLoggedIn(),
-      builder: (context, snapshot) {
-        // Don't show loading indicator to prevent flash
-        // Just show empty screen with matching background
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF8FAFC),
-            body: SizedBox.shrink(), // ✅ Empty, no loading indicator
-          );
-        }
-        
-        // If logged in, go to dashboard (or check role)
-        if (snapshot.data == true) {
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: AuthService.getUserData(),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  backgroundColor: Color(0xFFF8FAFC),
-                  body: SizedBox.shrink(), // ✅ Empty, no loading indicator
-                );
-              }
-              
-              final role = userSnapshot.data?['role'] as String?;
-              if (role == 'admin') {
-                return const Dashboard();
-              } else if (role == 'driver') {
-                return const driver_dashboard.DriverDashboard();
-              }
-              
-              // Invalid role, go to login
-              return const LoginPage();
-            },
-          );
-        }
-        
-        // Not logged in, go to login page
-        return const LoginPage();
-      },
-    );
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-// NO TRANSITION PAGE BUILDER
-// Disables page animations to prevent sidebar shift/movement
-// ═══════════════════════════════════════════════════════════════
-
-/// Custom page transition builder that shows no animation
-/// This prevents the sidebar and content from shifting during navigation
-class _NoTransitionBuilder extends PageTransitionsBuilder {
-  const _NoTransitionBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    // Return child directly without any animation
-    // This makes navigation instant with zero movement
-    return child;
   }
 }

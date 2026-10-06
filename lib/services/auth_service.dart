@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String _baseUrl = 'https://cpsu-motorpool-backend.onrender.com';
+  static const String _baseUrl = 'https://cpsumotorpool-backend.onrender.com';
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
   

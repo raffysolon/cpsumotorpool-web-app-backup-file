@@ -2,8 +2,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+class LoginException implements Exception {
+  const LoginException(this.message);
+
+  final String message;
+}
+
 class AuthService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static const String baseUrl = 'https://cpsumotorpool-backend.onrender.com/api';
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, dynamic>> login(String email, String password) async {
@@ -13,18 +19,37 @@ class AuthService {
       body: jsonEncode({'email': email, 'password': password}),
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      // Save token and role locally
-      await _storage.write(key: 'auth_token', value: data['token']);
-      await _storage.write(key: 'role', value: data['role']);
-      await _storage.write(key: 'name', value: data['name']);
-
-      return data;
-    } else {
-      throw Exception('Invalid credentials');
+    if (response.statusCode == 401) {
+      throw const LoginException('Email or password was rejected by the server.');
     }
+    if (response.statusCode == 422) {
+      throw const LoginException('The email or password format is invalid.');
+    }
+    if (response.statusCode == 429) {
+      throw const LoginException(
+        'Too many login attempts. Wait a minute, then try again.',
+      );
+    }
+    if (response.statusCode >= 500) {
+      throw LoginException(
+        'The server returned an error (${response.statusCode}).',
+      );
+    }
+    if (response.statusCode != 200) {
+      throw LoginException('Login request failed (${response.statusCode}).');
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final token = data['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const LoginException('The server returned no login token.');
+    }
+
+    await _storage.write(key: 'auth_token', value: token);
+    await _storage.write(key: 'role', value: data['role'] as String?);
+    await _storage.write(key: 'name', value: data['name'] as String?);
+
+    return data;
   }
 
   static Future<String?> getToken() async {

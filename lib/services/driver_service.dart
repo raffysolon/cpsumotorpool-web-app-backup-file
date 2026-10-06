@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
 class DriverService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static const String baseUrl = 'https://cpsumotorpool-backend.onrender.com/api';
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
