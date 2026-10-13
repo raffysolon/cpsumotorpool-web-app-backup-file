@@ -1,3 +1,4 @@
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/assignment_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -79,7 +80,8 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         _vehicleDisplayName = null;
         _isLoadingAssignment = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         const SnackBar(content: Text('Unable to load vehicle assignment')),
       );
     }
@@ -105,31 +107,31 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
       backgroundColor: AppColors.background,
       body: DriverShellAtmosphere(
         child: LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 720;
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              narrow ? 18 : 48,
-              24,
-              narrow ? 18 : 48,
-              48,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1080),
-                child: Column(
-                  children: [
-                    _buildHeader(narrow),
-                    const SizedBox(height: 28),
-                    _buildProgress(narrow),
-                    const SizedBox(height: 28),
-                    _buildStepContent(narrow),
-                  ],
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 720;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                narrow ? 18 : 48,
+                24,
+                narrow ? 18 : 48,
+                48,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1080),
+                  child: Column(
+                    children: [
+                      _buildHeader(narrow),
+                      const SizedBox(height: 28),
+                      _buildProgress(narrow),
+                      const SizedBox(height: 28),
+                      _buildStepContent(narrow),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
         ),
       ),
     );
@@ -1122,7 +1124,8 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         SnackBar(content: Text('Unable to submit trip ticket: $error')),
       );
     }

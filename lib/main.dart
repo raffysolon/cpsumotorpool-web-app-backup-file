@@ -18,6 +18,7 @@ import 'pages/Driver/pages/Settings.dart' as driver_settings;
 import 'pages/feautures/auth/Login.dart';
 import 'pages/services/auth_service.dart';
 import 'pages/splash_screen.dart';
+import 'widgets/app_notification.dart';
 
 // ─── App Entry Point ───
 void main() {
@@ -38,58 +39,48 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        elevatedButtonTheme: ElevatedButtonThemeData(style: _filledButtonStyle()),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: _filledButtonStyle(),
+        ),
         filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle()),
-        outlinedButtonTheme: OutlinedButtonThemeData(style: _outlinedButtonStyle()),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: _outlinedButtonStyle(),
+        ),
         textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
       ),
+      builder: (context, child) =>
+          AppNotification.host(child: child ?? const SizedBox.shrink()),
       // ─── Route Definitions ───
       initialRoute: '/login',
       routes: {
         '/splash': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),
-        '/': (context) => _RoleGuard(
-          role: 'admin',
-          child: const Dashboard(),
+        '/': (context) => _RoleGuard(role: 'admin', child: const Dashboard()),
+        '/trip-request': (context) =>
+            _RoleGuard(role: 'admin', child: const TripRequest()),
+        '/active-trips': (context) =>
+            _RoleGuard(role: 'admin', child: const ActiveTrip()),
+        '/map': (context) => _RoleGuard(role: 'admin', child: const MapPage()),
+        '/vehicles': (context) =>
+            _RoleGuard(role: 'admin', child: const VehiclesDriversPage()),
+        '/coordinator-assignments': (context) =>
+            _RoleGuard(role: 'admin', child: const CoordinatorAssignments()),
+        '/trip-history': (context) =>
+            _RoleGuard(role: 'admin', child: const TripHistory()),
+        '/sync-logs': (context) =>
+            _RoleGuard(role: 'admin', child: const SyncLogs()),
+        '/settings': (context) =>
+            _RoleGuard(role: 'admin', child: const Settings()),
+        '/driver-dashboard': (context) => _RoleGuard(
+          role: 'driver',
+          child: const driver_dashboard.DriverDashboard(),
         ),
-        '/trip-request': (context) => _RoleGuard(
-          role: 'admin',
-          child: const TripRequest(),
-        ),
-        '/active-trips': (context) => _RoleGuard(
-          role: 'admin',
-          child: const ActiveTrip(),
-        ),
-        '/map': (context) => _RoleGuard(
-          role: 'admin',
-          child: const MapPage(),
-        ),
-        '/vehicles': (context) => _RoleGuard(
-          role: 'admin',
-          child: const VehiclesDriversPage(),
-        ),
-        '/coordinator-assignments': (context) => _RoleGuard(
-          role: 'admin',
-          child: const CoordinatorAssignments(),
-        ),
-        '/trip-history': (context) => _RoleGuard(
-          role: 'admin',
-          child: const TripHistory(),
-        ),
-        '/sync-logs': (context) => _RoleGuard(
-          role: 'admin',
-          child: const SyncLogs(),
-        ),
-        '/settings': (context) => _RoleGuard(
-          role: 'admin',
-          child: const Settings(),
-        ),
-        '/driver-dashboard': (context) =>
-            _RoleGuard(role: 'driver', child: const driver_dashboard.DriverDashboard()),
         '/driver-create-trip': (context) =>
             _RoleGuard(role: 'driver', child: const CreateTripTicket()),
-        '/driver-settings': (context) =>
-            _RoleGuard(role: 'driver', child: const driver_settings.DriverSettings()),
+        '/driver-settings': (context) => _RoleGuard(
+          role: 'driver',
+          child: const driver_settings.DriverSettings(),
+        ),
       },
     );
   }
@@ -167,7 +158,8 @@ class _RoleGuardState extends State<_RoleGuard> {
     try {
       final token = await AuthService.getToken();
       final role = await AuthService.getRole();
-      allowed = token != null &&
+      allowed =
+          token != null &&
           token.isNotEmpty &&
           role?.trim().toLowerCase() == widget.role;
     } catch (_) {}

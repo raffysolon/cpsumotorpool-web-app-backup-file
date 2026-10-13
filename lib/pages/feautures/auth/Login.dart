@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 import '../../services/auth_service.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -53,28 +55,24 @@ class _LoginPageState extends State<LoginPage>
       parent: _enterCtrl,
       curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
     );
-    _panelSlide = Tween<Offset>(
-      begin: const Offset(-0.06, 0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _enterCtrl,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
-      ),
-    );
+    _panelSlide = Tween<Offset>(begin: const Offset(-0.06, 0), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _enterCtrl,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+          ),
+        );
     _cardFade = CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.2, 0.85, curve: Curves.easeOut),
     );
-    _cardSlide = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _enterCtrl,
-        curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
-      ),
-    );
+    _cardSlide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _enterCtrl,
+            curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
+          ),
+        );
     _enterCtrl.forward();
   }
 
@@ -103,6 +101,14 @@ class _LoginPageState extends State<LoginPage>
 
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      _showLoginSnackBar(
+        success: false,
+        error: 'Enter your email and password.',
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -115,7 +121,6 @@ class _LoginPageState extends State<LoginPage>
         throw Exception('Invalid role');
       }
 
-      setState(() => _isLoading = false);
       _showLoginSnackBar(success: true);
       await Future<void>.delayed(const Duration(milliseconds: 600));
 
@@ -145,34 +150,10 @@ class _LoginPageState extends State<LoginPage>
   }
 
   void _showLoginSnackBar({required bool success, String? error}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: success
-            ? const Color(0xFF1F2933)
-            : const Color(0xFF7F1D1D),
-        content: Row(
-          children: [
-            Icon(
-              success ? Icons.check_circle : Icons.warning_rounded,
-              color: success ? const Color(0xFF4ADE80) : Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              success
-                  ? 'Login successful — welcome back!'
-                  : error ?? 'Login failed.',
-              style: AppTypography.bodyStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
+    AppNotification.showMessage(
+      success ? 'Login successful — welcome back!' : error ?? 'Login failed.',
+      isSuccess: success,
+      isError: !success,
     );
   }
 
@@ -258,6 +239,8 @@ class _LoginPageState extends State<LoginPage>
                     ),
                   ),
                 ),
+              if (_isLoading)
+                const InteractionLoadingOverlay(message: 'Signing in...'),
             ],
           );
         },
@@ -289,9 +272,7 @@ class _LoginPageState extends State<LoginPage>
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(wide ? 32 : 26),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.24),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
             ),
             child: Image.asset(
               'assets/images/cpsu logo.png',
@@ -520,21 +501,10 @@ class _LoginPageState extends State<LoginPage>
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          'Log in',
-                          style: AppTypography.buttonLabel(
-                            color: Colors.white,
-                          ),
-                        ),
+                  child: Text(
+                    'Log in',
+                    style: AppTypography.buttonLabel(color: Colors.white),
+                  ),
                 ),
               ),
             ],

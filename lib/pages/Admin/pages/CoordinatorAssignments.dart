@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:convert';
 
 // ignore_for_file: file_names
@@ -80,7 +80,6 @@ class _CoordinatorAssignmentsContentState
   List<_AssignmentOption> _drivers = const [];
   List<_AssignmentOption> _vehicles = const [];
   bool _isLoading = true;
-  Timer? _notificationTimer;
 
   @override
   void initState() {
@@ -123,11 +122,10 @@ class _CoordinatorAssignmentsContentState
         ? 'available-drivers'
         : 'available-vehicles';
     final response = await http.get(
-      Uri.parse('https://cpsumotorpool-backend.onrender.com/api/$availableResource'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      Uri.parse(
+        'https://cpsu-motorpool-backend.onrender.com/api/$availableResource',
+      ),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -138,15 +136,17 @@ class _CoordinatorAssignmentsContentState
     final records = decoded is List
         ? decoded
         : decoded is Map<String, dynamic> && decoded['data'] is List
-            ? decoded['data'] as List
-            : const [];
+        ? decoded['data'] as List
+        : const [];
 
     return records
         .whereType<Map<String, dynamic>>()
-        .map((record) => _AssignmentOption(
-              id: _toInt(record['id']),
-              name: _displayName(record),
-            ))
+        .map(
+          (record) => _AssignmentOption(
+            id: _toInt(record['id']),
+            name: _displayName(record),
+          ),
+        )
         .where((option) => option.id > 0 && option.name.isNotEmpty)
         .toList();
   }
@@ -155,8 +155,8 @@ class _CoordinatorAssignmentsContentState
     final records = response is List
         ? response
         : response is Map<String, dynamic> && response['data'] is List
-            ? response['data'] as List
-            : const [];
+        ? response['data'] as List
+        : const [];
 
     return records.whereType<Map<String, dynamic>>().map((record) {
       final driver = record['driver'] is Map<String, dynamic>
@@ -198,7 +198,6 @@ class _CoordinatorAssignmentsContentState
 
   @override
   void dispose() {
-    _notificationTimer?.cancel();
     super.dispose();
   }
 
@@ -207,13 +206,13 @@ class _CoordinatorAssignmentsContentState
     return AdminPageScaffold(
       title: 'Assignments',
       child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 16),
-                _buildTable(context),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context),
+            const SizedBox(height: 16),
+            _buildTable(context),
+          ],
         ),
       ),
     );
@@ -231,7 +230,10 @@ class _CoordinatorAssignmentsContentState
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: const [
-          Expanded(flex: 4, child: Text('CAMPUS / ADMINISTRATOR', style: style)),
+          Expanded(
+            flex: 4,
+            child: Text('CAMPUS / ADMINISTRATOR', style: style),
+          ),
           Expanded(flex: 3, child: Text('ASSIGNED DRIVER', style: style)),
           Expanded(flex: 4, child: Text('ASSIGNED VEHICLE', style: style)),
           SizedBox(width: 120),
@@ -288,7 +290,9 @@ class _CoordinatorAssignmentsContentState
       borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final tableWidth = constraints.maxWidth < 960 ? 960.0 : constraints.maxWidth;
+          final tableWidth = constraints.maxWidth < 960
+              ? 960.0
+              : constraints.maxWidth;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SizedBox(
@@ -317,7 +321,10 @@ class _CoordinatorAssignmentsContentState
     );
   }
 
-  Widget _buildTableRow(BuildContext context, _CoordinatorAssignment assignment) {
+  Widget _buildTableRow(
+    BuildContext context,
+    _CoordinatorAssignment assignment,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
@@ -352,10 +359,7 @@ class _CoordinatorAssignmentsContentState
             flex: 3,
             child: Text(
               assignment.driverName,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.navy,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppColors.navy),
             ),
           ),
           // Vehicle
@@ -363,10 +367,7 @@ class _CoordinatorAssignmentsContentState
             flex: 4,
             child: Text(
               assignment.vehicleName,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.navy,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppColors.navy),
             ),
           ),
           // Actions
@@ -376,12 +377,20 @@ class _CoordinatorAssignmentsContentState
               children: [
                 IconButton(
                   tooltip: 'Edit assignment',
-                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   onPressed: () => _showAssignmentDialog(context, assignment),
                 ),
                 IconButton(
                   tooltip: 'Delete assignment',
-                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
                   onPressed: () => _confirmDelete(assignment),
                 ),
               ],
@@ -448,7 +457,10 @@ class _CoordinatorAssignmentsContentState
             );
           } catch (error) {
             if (mounted) {
-              _showNotification('Unable to save assignment: $error', isError: true);
+              _showNotification(
+                'Unable to save assignment: $error',
+                isError: true,
+              );
             }
           }
         },
@@ -473,7 +485,9 @@ class _CoordinatorAssignmentsContentState
           ElevatedButton(
             onPressed: () async {
               try {
-                await CoordinatorAssignmentService.deleteAssignment(assignment.id);
+                await CoordinatorAssignmentService.deleteAssignment(
+                  assignment.id,
+                );
                 if (!mounted || !dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
                 await _loadData();
@@ -499,8 +513,8 @@ class _CoordinatorAssignmentsContentState
   }
 
   void _showNotification(String message, {bool isError = false}) {
-    _notificationTimer?.cancel();
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppNotification.show(
+      context,
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red : Colors.green,
@@ -519,7 +533,8 @@ class _AssignmentDialog extends StatefulWidget {
     String coordinatorName,
     int driverId,
     int vehicleId,
-  ) onSave;
+  )
+  onSave;
 
   const _AssignmentDialog({
     required this.assignment,
@@ -625,9 +640,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -656,9 +677,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -674,16 +701,19 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
-                initialValue: widget.drivers.any(
-                  (driver) => driver.id == _selectedDriverId,
-                )
+                initialValue:
+                    widget.drivers.any(
+                      (driver) => driver.id == _selectedDriverId,
+                    )
                     ? _selectedDriverId
                     : null,
                 items: widget.drivers
-                    .map((driver) => DropdownMenuItem<int>(
-                          value: driver.id,
-                          child: Text(driver.name),
-                        ))
+                    .map(
+                      (driver) => DropdownMenuItem<int>(
+                        value: driver.id,
+                        child: Text(driver.name),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) => setState(() => _selectedDriverId = value),
                 decoration: InputDecoration(
@@ -698,9 +728,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -716,18 +752,22 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
-                initialValue: widget.vehicles.any(
-                  (vehicle) => vehicle.id == _selectedVehicleId,
-                )
+                initialValue:
+                    widget.vehicles.any(
+                      (vehicle) => vehicle.id == _selectedVehicleId,
+                    )
                     ? _selectedVehicleId
                     : null,
                 items: widget.vehicles
-                    .map((vehicle) => DropdownMenuItem<int>(
-                          value: vehicle.id,
-                          child: Text(vehicle.name),
-                        ))
+                    .map(
+                      (vehicle) => DropdownMenuItem<int>(
+                        value: vehicle.id,
+                        child: Text(vehicle.name),
+                      ),
+                    )
                     .toList(),
-                onChanged: (value) => setState(() => _selectedVehicleId = value),
+                onChanged: (value) =>
+                    setState(() => _selectedVehicleId = value),
                 decoration: InputDecoration(
                   hintText: 'Select vehicle',
                   border: OutlineInputBorder(
@@ -740,9 +780,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
@@ -761,7 +807,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -769,11 +818,11 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                     child: ElevatedButton(
                       onPressed: _canSave
                           ? () => widget.onSave(
-                                _campusController.text.trim(),
-                                _coordinatorController.text.trim(),
+                              _campusController.text.trim(),
+                              _coordinatorController.text.trim(),
                               _selectedDriverId!,
                               _selectedVehicleId!,
-                              )
+                            )
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,

@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 class AdminCreateTripTicketPage extends StatelessWidget {
   const AdminCreateTripTicketPage({super.key});
@@ -73,8 +75,8 @@ class _CreatedTripRecord {
       assignedVehicle: _vehicleText(vehicle),
       status: _statusText(
         _text(json['effective_status']).isNotEmpty
-        ? json['effective_status']
-        : json['status'],
+            ? json['effective_status']
+            : json['status'],
       ),
       passengers: rawPassengers.whereType<Map>().map((passenger) {
         return _PassengerRecord(
@@ -238,11 +240,15 @@ class _AdminCreateTripTicketContentState
           : tripsResult is List
           ? tripsResult
           : const [];
-      final nextTrips = rawTrips.whereType<Map>().where((trip) {
-        return _text(trip['source']).trim().toLowerCase() == 'admin';
-      }).map((trip) {
-        return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
-      }).toList();
+      final nextTrips = rawTrips
+          .whereType<Map>()
+          .where((trip) {
+            return _text(trip['source']).trim().toLowerCase() == 'admin';
+          })
+          .map((trip) {
+            return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
+          })
+          .toList();
 
       final rawDrivers = driversResult is List ? driversResult : const [];
       final rawVehicles = vehiclesResult is List ? vehiclesResult : const [];
@@ -270,7 +276,8 @@ class _AdminCreateTripTicketContentState
       if (background) return;
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         SnackBar(content: Text('Unable to load trip data: $error')),
       );
     } finally {
@@ -339,13 +346,14 @@ class _AdminCreateTripTicketContentState
             );
 
             if (!mounted ||
-              !currentContext.mounted ||
-              !Navigator.of(currentDialogContext).mounted) {
+                !currentContext.mounted ||
+                !Navigator.of(currentDialogContext).mounted) {
               return;
             }
             Navigator.pop(currentDialogContext);
             adminTripTicketCountNotifier.value = 0;
-            ScaffoldMessenger.of(currentContext).showSnackBar(
+            AppNotification.show(
+              currentContext,
               const SnackBar(
                 content: Text('Trip ticket created successfully'),
                 backgroundColor: Colors.green,
@@ -354,7 +362,8 @@ class _AdminCreateTripTicketContentState
             await _loadData();
           } catch (error) {
             if (!mounted || !currentContext.mounted) return;
-            ScaffoldMessenger.of(currentContext).showSnackBar(
+            AppNotification.show(
+              currentContext,
               SnackBar(
                 content: Text('Unable to create trip: $error'),
                 backgroundColor: Colors.red,
@@ -375,6 +384,7 @@ class _AdminCreateTripTicketContentState
 
     _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
+    InteractionLoadingOverlay.show('Opening trip ticket...');
 
     PdfWindowHandle? pdfWindow;
     try {
@@ -382,7 +392,7 @@ class _AdminCreateTripTicketContentState
       if (response.bodyBytes.isEmpty) {
         throw Exception('Received empty PDF response.');
       }
-      
+
       // Open window only after PDF is downloaded
       pdfWindow = openPdfWindow();
       if (pdfWindow == null) {
@@ -393,11 +403,13 @@ class _AdminCreateTripTicketContentState
     } catch (error) {
       pdfWindow?.close();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AppNotification.show(
+          context,
           SnackBar(content: Text('Unable to open trip ticket: $error')),
         );
       }
     } finally {
+      InteractionLoadingOverlay.hide();
       if (mounted) {
         setState(() {
           _isOpeningTicket = false;
@@ -502,44 +514,6 @@ class _AdminCreateTripTicketContentState
             ),
           ],
         ),
-        if (_isOpeningTicket)
-          Positioned.fill(
-            child: AbsorbPointer(
-              absorbing: true,
-              child: ColoredBox(
-                color: const Color(0xE6FFFFFF), // Light background (90% white opacity)
-                child: Center(
-                  child: GlassCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-                    borderRadius: 16,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        SizedBox(
-                          width: 42,
-                          height: 42,
-                          child: CircularProgressIndicator(strokeWidth: 4),
-                        ),
-                        SizedBox(height: 18),
-                        Text(
-                          'Generating trip ticket...',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'Please wait',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -786,41 +760,41 @@ class _StatusBadge extends StatelessWidget {
     final completed = normalized == 'completed';
     final denied = normalized == 'denied';
     final textColor = denied
-      ? const Color(0xFFB91C1C)
-      : active
-      ? const Color(0xFF0F766E)
-      : completed
-      ? const Color(0xFF1D4ED8)
-      : scheduled
-      ? const Color(0xFF166534)
-      : const Color(0xFF92400E);
+        ? const Color(0xFFB91C1C)
+        : active
+        ? const Color(0xFF0F766E)
+        : completed
+        ? const Color(0xFF1D4ED8)
+        : scheduled
+        ? const Color(0xFF166534)
+        : const Color(0xFF92400E);
     final bgColor = denied
-      ? const Color(0xFFFEE2E2)
-      : active
-      ? const Color(0xFFCCFBF1)
-      : completed
-      ? const Color(0xFFDBEAFE)
-      : scheduled
-      ? const Color(0xFFDCFCE7)
-      : const Color(0xFFFEF3C7);
+        ? const Color(0xFFFEE2E2)
+        : active
+        ? const Color(0xFFCCFBF1)
+        : completed
+        ? const Color(0xFFDBEAFE)
+        : scheduled
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFFEF3C7);
     final borderColor = denied
-      ? const Color(0xFFFCA5A5)
-      : active
-      ? const Color(0xFF99F6E4)
-      : completed
-      ? const Color(0xFF93C5FD)
-      : scheduled
-      ? const Color(0xFF86EFAC)
-      : const Color(0xFFFCD34D);
+        ? const Color(0xFFFCA5A5)
+        : active
+        ? const Color(0xFF99F6E4)
+        : completed
+        ? const Color(0xFF93C5FD)
+        : scheduled
+        ? const Color(0xFF86EFAC)
+        : const Color(0xFFFCD34D);
     final icon = denied
-      ? Icons.cancel_rounded
-      : active
-      ? Icons.trip_origin_rounded
-      : completed
-      ? Icons.check_circle_rounded
-      : scheduled
-      ? Icons.schedule_rounded
-      : Icons.pending_rounded;
+        ? Icons.cancel_rounded
+        : active
+        ? Icons.trip_origin_rounded
+        : completed
+        ? Icons.check_circle_rounded
+        : scheduled
+        ? Icons.schedule_rounded
+        : Icons.pending_rounded;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -832,11 +806,7 @@ class _StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: textColor,
-          ),
+          Icon(icon, size: 12, color: textColor),
           const SizedBox(width: 6),
           Text(
             status,
@@ -848,40 +818,6 @@ class _StatusBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TripTicketLoadingDialog extends StatelessWidget {
-  const _TripTicketLoadingDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        borderRadius: 16,
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: CircularProgressIndicator(strokeWidth: 4),
-              ),
-              SizedBox(height: 18),
-              Text(
-                'Generating trip ticket...',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              SizedBox(height: 6),
-              Text('Please wait', style: TextStyle(color: Colors.black54)),
-            ],
-          ),
-        ),
       ),
     );
   }

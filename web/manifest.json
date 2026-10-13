@@ -1,11 +1,11 @@
 {
-    "name": "cpsumotorpooladmin",
-    "short_name": "cpsumotorpooladmin",
+    "name": "CPSU MotorPool - Driver",
+    "short_name": "CPSU Driver",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1F8A3D",
+    "theme_color": "#1F8A3D",
+    "description": "CPSU MotorPool Vehicle Tracking System - Driver Application",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

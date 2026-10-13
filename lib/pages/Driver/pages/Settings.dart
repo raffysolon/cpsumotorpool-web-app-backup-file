@@ -1,3 +1,4 @@
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -46,7 +47,7 @@ class _DriverSettingsState extends State<DriverSettings> {
         throw Exception('Authentication token not found');
       }
       final response = await http.get(
-        Uri.parse('https://cpsumotorpool-backend.onrender.com/api/user'),
+        Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
@@ -105,7 +106,7 @@ class _DriverSettingsState extends State<DriverSettings> {
   }
 
   void _message(String value) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
+    AppNotification.show(context, SnackBar(content: Text(value)));
   }
 
   String _value(String key, String fallback) =>
@@ -131,45 +132,45 @@ class _DriverSettingsState extends State<DriverSettings> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                const Text(
-                  'Settings',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 24),
-                _section('Driver Details', [
-                  if (_loadingProfile)
-                    const Center(child: CircularProgressIndicator())
-                  else if (_profileError != null)
-                    Text(
-                      _profileError!,
-                      style: const TextStyle(color: Colors.redAccent),
-                    )
-                  else ...[
-                    _readOnly('Name', _value('name', 'Not provided')),
-                    _readOnly('Email', _value('email', 'Not provided')),
-                    _readOnly(
-                      'Contact Number',
-                      _value('contact_number', 'Not provided'),
-                    ),
-                    _readOnly(
-                      'License Number',
-                      _value('license_number', 'Not provided'),
-                    ),
-                  ],
-                ]),
-                const SizedBox(height: 20),
-                _section('Change Password', [
-                  _passwordField('Current password', _currentPassword),
-                  _passwordField('New password', _newPassword),
-                  _passwordField('Confirm new password', _confirmPassword),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: _saving ? null : _changePassword,
-                      child: Text(_saving ? 'Saving...' : 'Change Password'),
-                    ),
+                  const Text(
+                    'Settings',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                   ),
-                ]),
+                  const SizedBox(height: 24),
+                  _section('Driver Details', [
+                    if (_loadingProfile)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_profileError != null)
+                      Text(
+                        _profileError!,
+                        style: const TextStyle(color: Colors.redAccent),
+                      )
+                    else ...[
+                      _readOnly('Name', _value('name', 'Not provided')),
+                      _readOnly('Email', _value('email', 'Not provided')),
+                      _readOnly(
+                        'Contact Number',
+                        _value('contact_number', 'Not provided'),
+                      ),
+                      _readOnly(
+                        'License Number',
+                        _value('license_number', 'Not provided'),
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: 20),
+                  _section('Change Password', [
+                    _passwordField('Current password', _currentPassword),
+                    _passwordField('New password', _newPassword),
+                    _passwordField('Confirm new password', _confirmPassword),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: _saving ? null : _changePassword,
+                        child: Text(_saving ? 'Saving...' : 'Change Password'),
+                      ),
+                    ),
+                  ]),
                 ],
               ),
             ),
@@ -185,12 +186,12 @@ class _DriverSettingsState extends State<DriverSettings> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 18),
-          ...children.expand((child) => [child, const SizedBox(height: 14)]),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 18),
+        ...children.expand((child) => [child, const SizedBox(height: 14)]),
       ],
     ),
   );

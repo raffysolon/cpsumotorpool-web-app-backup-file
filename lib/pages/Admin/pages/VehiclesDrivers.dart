@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/driver_service.dart';
 import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
@@ -71,7 +72,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         _vehicles
           ..clear()
           ..addAll(_parseVehicles(results[1]));
-        
+
         // Extract pagination metadata for drivers
         if (results[0] is Map) {
           final driverData = results[0] as Map<String, dynamic>;
@@ -86,7 +87,8 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         // Extract pagination metadata for vehicles
         if (results[1] is Map) {
           final vehicleData = results[1] as Map<String, dynamic>;
-          _vehicleCurrentPage = vehicleData['current_page'] ?? _vehicleCurrentPage;
+          _vehicleCurrentPage =
+              vehicleData['current_page'] ?? _vehicleCurrentPage;
           _vehicleLastPage = vehicleData['last_page'] ?? 1;
           _vehicleTotalRecords = vehicleData['total'] ?? _vehicles.length;
         } else {
@@ -99,7 +101,8 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         SnackBar(content: Text('Unable to load drivers and vehicles: $error')),
       );
     }
@@ -119,36 +122,44 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
 
   List<_DriverData> _parseDrivers(dynamic response) {
     final records = _records(response);
-    return records.map((record) {
-      return _DriverData(
-        _toInt(record['id']),
-        _stringValue(record['name']),
-        _stringValue(record['email']),
-        _stringValue(record['contact_number'] ?? record['contactNumber']),
-        _stringValue(record['status'], fallback: 'Active'),
-        _stringValue(record['license_number'] ?? record['licenseNumber']),
-      );
-    }).where((driver) => driver.id > 0).toList();
+    return records
+        .map((record) {
+          return _DriverData(
+            _toInt(record['id']),
+            _stringValue(record['name']),
+            _stringValue(record['email']),
+            _stringValue(record['contact_number'] ?? record['contactNumber']),
+            _stringValue(record['status'], fallback: 'Active'),
+            _stringValue(record['license_number'] ?? record['licenseNumber']),
+          );
+        })
+        .where((driver) => driver.id > 0)
+        .toList();
   }
 
   List<_VehicleData> _parseVehicles(dynamic response) {
     final records = _records(response);
-    return records.map((record) {
-      return _VehicleData(
-        _toInt(record['id']),
-        _stringValue(record['name']),
-        _stringValue(record['plate_no'] ?? record['plate'] ?? record['plateNo']),
-        _stringValue(record['status'], fallback: 'Available'),
-      );
-    }).where((vehicle) => vehicle.id > 0).toList();
+    return records
+        .map((record) {
+          return _VehicleData(
+            _toInt(record['id']),
+            _stringValue(record['name']),
+            _stringValue(
+              record['plate_no'] ?? record['plate'] ?? record['plateNo'],
+            ),
+            _stringValue(record['status'], fallback: 'Available'),
+          );
+        })
+        .where((vehicle) => vehicle.id > 0)
+        .toList();
   }
 
   List<Map<String, dynamic>> _records(dynamic response) {
     final records = response is List
         ? response
         : response is Map<String, dynamic> && response['data'] is List
-            ? response['data'] as List
-            : const [];
+        ? response['data'] as List
+        : const [];
     return records.whereType<Map<String, dynamic>>().toList();
   }
 
@@ -338,13 +349,19 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.mutedDark,
+                        ),
                       ),
                     ],
                   ),
                   Text(
                     '$recordCount records',
-                    style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.mutedDark,
+                    ),
                   ),
                 ],
               ),
@@ -356,7 +373,6 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       ),
     );
   }
-
 
   Widget _buildPaginationControls({
     required int currentPage,
@@ -397,9 +413,15 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   Widget _buildVehicleTable() {
     return _buildTable(
       minWidth: 700,
-      headers: const ['VEHICLE NAME / MODEL', 'PLATE NUMBER', 'STATUS', 'ACTIONS'],
+      headers: const [
+        'VEHICLE NAME / MODEL',
+        'PLATE NUMBER',
+        'STATUS',
+        'ACTIONS',
+      ],
       rows: [
-        for (var i = 0; i < _vehicles.length; i++) _buildVehicleRow(i, _vehicles[i]),
+        for (var i = 0; i < _vehicles.length; i++)
+          _buildVehicleRow(i, _vehicles[i]),
       ],
       flexes: const [6, 4, 3, 2],
     );
@@ -410,7 +432,8 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       minWidth: 900,
       headers: const ['NAME', 'EMAIL', 'CONTACT NUMBER', 'STATUS', 'ACTIONS'],
       rows: [
-        for (var i = 0; i < _drivers.length; i++) _buildDriverRow(i, _drivers[i]),
+        for (var i = 0; i < _drivers.length; i++)
+          _buildDriverRow(i, _drivers[i]),
       ],
       flexes: const [4, 6, 4, 3, 2],
     );
@@ -434,7 +457,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final width = constraints.maxWidth < minWidth ? minWidth : constraints.maxWidth;
+          final width = constraints.maxWidth < minWidth
+              ? minWidth
+              : constraints.maxWidth;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SizedBox(
@@ -442,11 +467,17 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     child: Row(
                       children: [
                         for (var i = 0; i < headers.length; i++)
-                          Expanded(flex: flexes[i], child: Text(headers[i], style: headerStyle)),
+                          Expanded(
+                            flex: flexes[i],
+                            child: Text(headers[i], style: headerStyle),
+                          ),
                       ],
                     ),
                   ),
@@ -467,10 +498,13 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         Expanded(flex: 6, child: _primaryText(vehicle.name)),
         Expanded(flex: 4, child: _bodyText(vehicle.plate)),
         Expanded(flex: 3, child: _statusBadge(vehicle.status)),
-        Expanded(flex: 2, child: _actions(
-          onEdit: () => _showEditVehicleDialog(vehicle),
-          onDelete: () => _confirmDeleteVehicle(vehicle),
-        )),
+        Expanded(
+          flex: 2,
+          child: _actions(
+            onEdit: () => _showEditVehicleDialog(vehicle),
+            onDelete: () => _confirmDeleteVehicle(vehicle),
+          ),
+        ),
       ],
     );
   }
@@ -482,11 +516,14 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         Expanded(flex: 6, child: _bodyText(driver.email)),
         Expanded(flex: 4, child: _bodyText(driver.contactNumber)),
         Expanded(flex: 3, child: _statusBadge(driver.status)),
-        Expanded(flex: 2, child: _actions(
-          onEdit: () => _showDriverDetails(driver),
-          onDelete: () => _confirmDeleteDriver(driver),
-          isDetails: true,
-        )),
+        Expanded(
+          flex: 2,
+          child: _actions(
+            onEdit: () => _showDriverDetails(driver),
+            onDelete: () => _confirmDeleteDriver(driver),
+            isDetails: true,
+          ),
+        ),
       ],
     );
   }
@@ -499,15 +536,19 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Widget _primaryText(String value) => Text(
-        value,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.navy),
-      );
+    value,
+    style: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppColors.navy,
+    ),
+  );
 
   Widget _bodyText(String value) => Text(
-        value,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 13, color: AppColors.navy),
-      );
+    value,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(fontSize: 13, color: AppColors.navy),
+  );
 
   Widget _statusBadge(String status) {
     final active = status == 'Active' || status == 'Available';
@@ -554,14 +595,22 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
           IconButton(
             tooltip: 'Reset Password',
             onPressed: onReset,
-            icon: const Icon(Icons.lock_reset_outlined, size: 18, color: AppColors.mutedDark),
+            icon: const Icon(
+              Icons.lock_reset_outlined,
+              size: 18,
+              color: AppColors.mutedDark,
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         IconButton(
           tooltip: 'Delete',
           onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.mutedDark),
+          icon: const Icon(
+            Icons.delete_outline,
+            size: 18,
+            color: AppColors.mutedDark,
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
@@ -583,7 +632,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       builder: (_) => _VehicleDialog(
         vehicle: vehicle,
         onSave: (name, plate) async {
-          debugPrint('VehiclesDriversPage: saving vehicle => name=$name plate=$plate');
+          debugPrint(
+            'VehiclesDriversPage: saving vehicle => name=$name plate=$plate',
+          );
           if (vehicle == null) {
             await VehicleService.createVehicle(name: name, plateNo: plate);
           } else {
@@ -656,7 +707,10 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
                   const Expanded(
                     child: Text(
                       'Status',
-                      style: TextStyle(color: AppColors.mutedDark, fontSize: 13),
+                      style: TextStyle(
+                        color: AppColors.mutedDark,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   _statusBadge(driver.status),
@@ -671,7 +725,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primaryDark,
               side: const BorderSide(color: AppColors.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Edit Details'),
           ),
@@ -699,7 +755,10 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.mutedDark, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.mutedDark, fontSize: 12),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
@@ -729,7 +788,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           title: Text(
             index == null ? 'Add Driver' : 'Edit Driver',
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
@@ -744,9 +805,18 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
                   children: [
                     _formField(nameController, 'Name'),
                     const SizedBox(height: 12),
-                    _formField(emailController, 'Email', keyboardType: TextInputType.emailAddress, validator: _emailValidator),
+                    _formField(
+                      emailController,
+                      'Email',
+                      keyboardType: TextInputType.emailAddress,
+                      validator: _emailValidator,
+                    ),
                     const SizedBox(height: 12),
-                    _formField(contactController, 'Contact Number', keyboardType: TextInputType.phone),
+                    _formField(
+                      contactController,
+                      'Contact Number',
+                      keyboardType: TextInputType.phone,
+                    ),
                     const SizedBox(height: 12),
                     _formField(licenseController, 'License Number'),
                     const SizedBox(height: 12),
@@ -786,7 +856,10 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
             ),
           ),
           actions: [
-            TextButton(onPressed: submitting ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: submitting
                   ? null
@@ -824,14 +897,24 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
                       } catch (error) {
                         if (!dialogContext.mounted) return;
                         setDialogState(() => submitting = false);
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(content: Text('Unable to save driver: $error')),
+                        AppNotification.show(
+                          dialogContext,
+                          SnackBar(
+                            content: Text('Unable to save driver: $error'),
+                          ),
                         );
                       }
                     },
               style: _buttonStyle(),
               child: submitting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(index == null ? 'Create Driver' : 'Save'),
             ),
           ],
@@ -846,10 +929,13 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Future<void> _confirmResetDriverPassword(_DriverData driver) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
             title: const Text(
               'Reset driver password?',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
@@ -876,12 +962,14 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     try {
       await _resetDriverPassword(driver.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         const SnackBar(content: Text('Driver password reset successfully')),
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AppNotification.show(
+          context,
           SnackBar(content: Text('Unable to reset password: $error')),
         );
       }
@@ -899,7 +987,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     required String licenseNumber,
     required String password,
   }) async {
-    debugPrint('VehiclesDriversPage: creating driver => name=$name email=$email contact=$contactNumber license=$licenseNumber');
+    debugPrint(
+      'VehiclesDriversPage: creating driver => name=$name email=$email contact=$contactNumber license=$licenseNumber',
+    );
     await DriverService.createDriver(
       name: name,
       email: email,
@@ -939,39 +1029,52 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
-      validator: validator ?? (value) => value == null || value.trim().isEmpty ? '$label is required' : null,
+      validator:
+          validator ??
+          (value) => value == null || value.trim().isEmpty
+              ? '$label is required'
+              : null,
       decoration: InputDecoration(
         labelText: label,
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFFFAFCFB),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
       ),
     );
   }
 
   String? _emailValidator(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email is required';
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim()) ? null : 'Enter a valid email address';
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())
+        ? null
+        : 'Enter a valid email address';
   }
 
   ButtonStyle _buttonStyle() => ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      );
+    backgroundColor: AppColors.primary,
+    foregroundColor: Colors.white,
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  );
 
   Future<void> _confirmDeleteVehicle(_VehicleData vehicle) async {
-    final confirmed = await _confirmDelete('Delete Vehicle', 'Delete "${vehicle.name}"?');
+    final confirmed = await _confirmDelete(
+      'Delete Vehicle',
+      'Delete "${vehicle.name}"?',
+    );
     if (!confirmed || !mounted) return;
     try {
       await VehicleService.deleteVehicle(vehicle.id);
       await _loadData();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AppNotification.show(
+          context,
           SnackBar(content: Text('Unable to delete vehicle: $error')),
         );
       }
@@ -979,14 +1082,18 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Future<void> _confirmDeleteDriver(_DriverData driver) async {
-    final confirmed = await _confirmDelete('Delete Driver', 'Delete "${driver.name}"?');
+    final confirmed = await _confirmDelete(
+      'Delete Driver',
+      'Delete "${driver.name}"?',
+    );
     if (!confirmed || !mounted) return;
     try {
       await DriverService.deleteDriver(driver.id);
       await _loadData();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AppNotification.show(
+          context,
           SnackBar(content: Text('Unable to delete driver: $error')),
         );
       }
@@ -997,12 +1104,24 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     return await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
             content: Text(message),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-              ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), style: _buttonStyle(), child: const Text('Delete')),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                style: _buttonStyle(),
+                child: const Text('Delete'),
+              ),
             ],
           ),
         ) ??
@@ -1083,7 +1202,8 @@ class _VehicleDialogState extends State<_VehicleDialog> {
               if (context.mounted) Navigator.pop(context);
             } catch (error) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                AppNotification.show(
+                  context,
                   SnackBar(content: Text('Unable to save vehicle: $error')),
                 );
               }
@@ -1102,15 +1222,17 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   Widget _formField(TextEditingController controller, String label) {
     return TextFormField(
       controller: controller,
-      validator: (value) => value == null || value.trim().isEmpty
-          ? '$label is required'
-          : null,
+      validator: (value) =>
+          value == null || value.trim().isEmpty ? '$label is required' : null,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
         fillColor: const Color(0xFFFAFCFB),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -1125,7 +1247,14 @@ class _VehicleData {
 }
 
 class _DriverData {
-  _DriverData(this.id, this.name, this.email, this.contactNumber, this.status, this.licenseNumber);
+  _DriverData(
+    this.id,
+    this.name,
+    this.email,
+    this.contactNumber,
+    this.status,
+    this.licenseNumber,
+  );
   final int id;
   String name;
   String email;

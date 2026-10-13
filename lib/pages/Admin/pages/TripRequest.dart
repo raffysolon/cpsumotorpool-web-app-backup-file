@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 class TripRequest extends StatelessWidget {
   const TripRequest({super.key});
@@ -266,14 +268,18 @@ class _TripRequestContentState extends State<_TripRequestContent>
     });
   }
 
-  Future<void> _openTripTicketPdf(BuildContext dialogContext, _TripRequestData trip) async {
+  Future<void> _openTripTicketPdf(
+    BuildContext dialogContext,
+    _TripRequestData trip,
+  ) async {
     if (_isOpeningTicket) return;
-    
+
     // Close the details dialog first
     Navigator.pop(dialogContext);
-    
+
     setState(() => _isOpeningTicket = true);
-    
+    InteractionLoadingOverlay.show('Opening trip ticket...');
+
     PdfWindowHandle? pdfWindow;
     try {
       final response = await TripService.getTripTicket(trip.id);
@@ -293,6 +299,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
       debugPrint('TripRequest._openTripTicketPdf(): error=$error');
       _showError('Error: $error');
     } finally {
+      InteractionLoadingOverlay.hide();
       if (mounted) {
         setState(() => _isOpeningTicket = false);
       }
@@ -303,13 +310,12 @@ class _TripRequestContentState extends State<_TripRequestContent>
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppNotification.show(context, SnackBar(content: Text(message)));
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppNotification.show(
+      context,
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
@@ -337,32 +343,6 @@ class _TripRequestContentState extends State<_TripRequestContent>
                   ),
                 ),
         ),
-        if (_isOpeningTicket)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black54,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 14),
-                      Text(
-                        'Generating trip ticket...',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -613,7 +593,6 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
-
 
 class _TripDetailDialog extends StatelessWidget {
   const _TripDetailDialog({

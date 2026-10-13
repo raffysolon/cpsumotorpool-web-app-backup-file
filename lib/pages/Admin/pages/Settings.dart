@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -40,7 +41,7 @@ class _SettingsState extends State<Settings> {
     final token = await AuthService.getToken();
     if (token == null) return;
     final response = await http.get(
-      Uri.parse('https://cpsumotorpool-backend.onrender.com/api/user'),
+      Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     if (!mounted || response.statusCode != 200) return;
@@ -58,7 +59,10 @@ class _SettingsState extends State<Settings> {
     }
     setState(() => _saving = true);
     try {
-      await AuthService.changePassword(_currentPassword.text, _newPassword.text);
+      await AuthService.changePassword(
+        _currentPassword.text,
+        _newPassword.text,
+      );
       _currentPassword.clear();
       _newPassword.clear();
       _confirmPassword.clear();
@@ -71,7 +75,7 @@ class _SettingsState extends State<Settings> {
   }
 
   void _message(String value) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
+    AppNotification.show(context, SnackBar(content: Text(value)));
   }
 
   Future<void> _logout() async {
@@ -124,49 +128,56 @@ class _SettingsState extends State<Settings> {
   }
 
   Widget _section(String title, List<Widget> children) => GlassCard(
-        padding: const EdgeInsets.all(24),
-        borderRadius: 18,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 18),
-            ...children.expand((child) => [child, const SizedBox(height: 14)]),
-          ]),
-      );
+    padding: const EdgeInsets.all(24),
+    borderRadius: 18,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 18),
+        ...children.expand((child) => [child, const SizedBox(height: 14)]),
+      ],
+    ),
+  );
 
   Widget _readOnly(String label, String value) => InputDecorator(
-          decoration: InputDecoration(
-            labelText: label,
-            filled: true,
-            fillColor: const Color(0xFFFAFBFC),
-            labelStyle: const TextStyle(color: AppColors.mutedDark),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-          ),
-        child: Text(value),
-      );
+    decoration: InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: const Color(0xFFFAFBFC),
+      labelStyle: const TextStyle(color: AppColors.mutedDark),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+    ),
+    child: Text(value),
+  );
 
-  Widget _passwordField(String label, TextEditingController controller) => TextField(
+  Widget _passwordField(String label, TextEditingController controller) =>
+      TextField(
         controller: controller,
         obscureText: true,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: const Color(0xFFFAFBFC),
-        labelStyle: const TextStyle(color: AppColors.mutedDark),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: const Color(0xFFFAFBFC),
+          labelStyle: const TextStyle(color: AppColors.mutedDark),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-      ),
       );
 }

@@ -1,9 +1,11 @@
 // ignore_for_file: file_names
 
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 class TripHistory extends StatelessWidget {
   const TripHistory({super.key});
@@ -44,10 +46,10 @@ class _TripHistoryData {
     final driver = _map(json['driver']);
     final vehicle = _map(json['vehicle']);
     final passengers = json['passengers'] is List
-          ? (json['passengers'] as List)
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
+        ? (json['passengers'] as List)
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
         : <Map<String, dynamic>>[];
 
     return _TripHistoryData(
@@ -109,7 +111,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   List<_TripHistoryData> _trips = [];
   bool _loading = true;
   bool _downloading = false;
-  
+
   // Pagination state
   int _currentPage = 1;
   int _lastPage = 1;
@@ -145,7 +147,10 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
 
       final trips = rawTrips
           .whereType<Map>()
-          .map((trip) => _TripHistoryData.fromJson(Map<String, dynamic>.from(trip)))
+          .map(
+            (trip) =>
+                _TripHistoryData.fromJson(Map<String, dynamic>.from(trip)),
+          )
           .toList();
 
       if (!mounted) return;
@@ -189,30 +194,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   Future<void> _downloadPdf(_TripHistoryData trip) async {
     if (_downloading) return;
     setState(() => _downloading = true);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 14),
-              Text(
-                'Downloading PDF...',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    InteractionLoadingOverlay.show('Downloading trip ticket...');
     try {
       final response = await TripService.getTripTicket(trip.id);
       await downloadPdf(response.bodyBytes, trip.id);
@@ -222,8 +204,8 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
         _message('Unable to download trip ticket: $error', error: true);
       }
     } finally {
+      InteractionLoadingOverlay.hide();
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
         setState(() => _downloading = false);
       }
     }
@@ -272,7 +254,12 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
             child: const Text('Close'),
           ),
           FilledButton.icon(
-            onPressed: _downloading ? null : () => _downloadPdf(trip),
+            onPressed: _downloading
+                ? null
+                : () {
+                    Navigator.pop(dialogContext);
+                    _downloadPdf(trip);
+                  },
             icon: _downloading
                 ? const SizedBox(
                     width: 17,
@@ -309,7 +296,8 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   }
 
   void _message(String value, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    AppNotification.show(
+      context,
       SnackBar(
         content: Text(value),
         backgroundColor: error ? Colors.red : null,
@@ -328,8 +316,8 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -356,7 +344,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                     const SizedBox(height: 16),
                     _buildPaginationControls(),
                   ],
-                    ],
+                ],
               ),
             ),
           ),
@@ -364,8 +352,6 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       ],
     );
   }
-
-
 
   Widget _buildPaginationControls() {
     return GlassCard(

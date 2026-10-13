@@ -1,3 +1,4 @@
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // ACTIVE TRIPS PAGE
@@ -149,7 +151,8 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
       if (background) return;
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         SnackBar(content: Text('Unable to load active trips: $error')),
       );
     } finally {
@@ -186,6 +189,7 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
 
     _isDialogOpen = true;
     setState(() => _isOpeningTicket = true);
+    InteractionLoadingOverlay.show('Opening trip ticket...');
 
     PdfWindowHandle? pdfWindow;
     try {
@@ -204,10 +208,12 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
     } catch (error) {
       pdfWindow?.close();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      AppNotification.show(
+        context,
         SnackBar(content: Text('Unable to open trip ticket: $error')),
       );
     } finally {
+      InteractionLoadingOverlay.hide();
       if (mounted) {
         setState(() {
           _isOpeningTicket = false;
@@ -252,44 +258,6 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
               ],
             ),
           ),
-          if (_isOpeningTicket)
-            Positioned.fill(
-              child: AbsorbPointer(
-                absorbing: true,
-                child: ColoredBox(
-                  color: const Color(0xE6FFFFFF), // Light background (90% white opacity)
-                  child: Center(
-                    child: GlassCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-                      borderRadius: 16,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          SizedBox(
-                            width: 42,
-                            height: 42,
-                            child: CircularProgressIndicator(strokeWidth: 4),
-                          ),
-                          SizedBox(height: 18),
-                          Text(
-                            'Generating trip ticket...',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Please wait',
-                            style: TextStyle(color: Colors.black54),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -601,40 +569,6 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TripTicketLoadingDialog extends StatelessWidget {
-  const _TripTicketLoadingDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        borderRadius: 16,
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: CircularProgressIndicator(strokeWidth: 4),
-              ),
-              SizedBox(height: 18),
-              Text(
-                'Generating trip ticket...',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              SizedBox(height: 6),
-              Text('Please wait', style: TextStyle(color: Colors.black54)),
-            ],
-          ),
-        ),
       ),
     );
   }

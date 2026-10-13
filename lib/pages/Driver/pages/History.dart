@@ -1,7 +1,9 @@
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 // === Trip history page: completed driver trip tickets ===
 class HistoryPage extends StatefulWidget {
@@ -24,6 +26,7 @@ class _HistoryPageState extends State<HistoryPage> {
   static const _dateRanges = ['All time', 'This month', 'Last 3 months'];
   String _selectedDateRange = 'All time';
   bool _isLoading = true;
+  bool _isDownloading = false;
   List<Trip> _trips = [];
 
   @override
@@ -97,38 +100,48 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        backgroundColor: AppColors.glassFill,
-        foregroundColor: _ink,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          'Trip History (${_trips.length})',
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-      ),
-      body: DriverShellAtmosphere(
-        child: Column(
-          children: [
-            _buildDateRangeFilter(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _trips.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                      itemCount: _trips.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) =>
-                          _buildTripCard(_trips[index]),
-                    ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Scaffold(
+          backgroundColor: _background,
+          appBar: AppBar(
+            backgroundColor: AppColors.glassFill,
+            foregroundColor: _ink,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            title: Text(
+              'Trip History (${_trips.length})',
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-          ],
+          ),
+          body: DriverShellAtmosphere(
+            child: Column(
+              children: [
+                _buildDateRangeFilter(),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _trips.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                          itemCount: _trips.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 14),
+                          itemBuilder: (context, index) =>
+                              _buildTripCard(_trips[index]),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (_isDownloading)
+          const InteractionLoadingOverlay(
+            message: 'Downloading trip ticket...',
+          ),
+      ],
     );
   }
 
@@ -363,15 +376,20 @@ class _HistoryPageState extends State<HistoryPage> {
       '${_month(value.month)} ${value.day}, ${value.year} ${value.hour == 0 ? 12 : (value.hour > 12 ? value.hour - 12 : value.hour)}:${value.minute.toString().padLeft(2, '0')} ${value.hour >= 12 ? 'PM' : 'AM'}';
 
   Future<void> _downloadPdf(String tripId) async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
     try {
       final response = await TripService.getTripTicket(int.parse(tripId));
       await downloadPdf(response.bodyBytes, int.parse(tripId));
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        AppNotification.show(
+          context,
           SnackBar(content: Text('Unable to download PDF: $error')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
     }
   }
 }
