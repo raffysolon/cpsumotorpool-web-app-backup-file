@@ -1,11 +1,9 @@
-import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
-import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 // === My trips page: filterable list of driver trip requests ===
 class MyTripsPage extends StatefulWidget {
@@ -28,7 +26,6 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
     'All',
     'Pending',
     'Approved',
-    'Scheduled',
     'Active',
     'Denied',
   ];
@@ -102,7 +99,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     .toString()
                     .trim()
                     .toLowerCase();
-            return status != 'completed';
+            return status != 'completed' && status != 'scheduled';
           })
           .map<Trip>((trip) {
             final map = trip as Map<String, dynamic>;
@@ -111,8 +108,8 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     .toString();
             final status = _normalizeStatus(rawStatus);
             final vehicle = map['vehicle'] is Map
-                ? Map<String, dynamic>.from(map['vehicle'] as Map)
-                : const <String, dynamic>{};
+              ? Map<String, dynamic>.from(map['vehicle'] as Map)
+              : const <String, dynamic>{};
             final vehicleLabel = _vehicleLabel(vehicle);
             final scheduledDeparture = map['scheduled_departure']?.toString();
             return Trip(
@@ -122,7 +119,10 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
               status: status,
               vehicle: vehicleLabel,
               departureTime: _formatDeparture(scheduledDeparture),
-              scheduledBadge: _scheduledBadgeLabel(status, scheduledDeparture),
+              scheduledBadge: _scheduledBadgeLabel(
+                status,
+                scheduledDeparture,
+              ),
             );
           })
           .toList();
@@ -311,32 +311,70 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
-                    children: [
-                      _buildFilterTabs(),
-                      Expanded(
-                        child: _filteredTrips.isEmpty
-                            ? _buildEmptyState()
-                            : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  20,
-                                  20,
-                                  32,
-                                ),
-                                itemCount: _filteredTrips.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 14),
-                                itemBuilder: (context, index) {
-                                  return _buildTripCard(_filteredTrips[index]);
-                                },
+                  children: [
+                    _buildFilterTabs(),
+                    Expanded(
+                      child: _filteredTrips.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                32,
                               ),
-                      ),
-                    ],
+                              itemCount: _filteredTrips.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 14),
+                              itemBuilder: (context, index) {
+                                return _buildTripCard(_filteredTrips[index]);
+                              },
+                            ),
+                    ),
+                  ],
+                    ),
                   ),
-          ),
         ),
         if (_isOpeningTicket)
-          const InteractionLoadingOverlay(message: 'Opening trip ticket...'),
+          Positioned.fill(
+            child: ColoredBox(
+              color: const Color(0x66000000),
+              child: Center(
+                child: Card(
+                  elevation: 8,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: CircularProgressIndicator(strokeWidth: 4),
+                        ),
+                        SizedBox(height: 18),
+                        Text(
+                          'Opening trip ticket...',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Please wait',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -641,15 +679,14 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
       if (id == null) throw Exception('Invalid trip ID');
       final response = await TripService.getTripTicket(id);
       if (!mounted) return;
+      setState(() => _isOpeningTicket = false);
       await openPdf(response.bodyBytes, id);
     } catch (error) {
       if (!mounted) return;
-      AppNotification.show(
-        context,
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to open trip ticket: $error')),
       );
-    } finally {
-      if (mounted) setState(() => _isOpeningTicket = false);
+      setState(() => _isOpeningTicket = false);
     }
   }
 }

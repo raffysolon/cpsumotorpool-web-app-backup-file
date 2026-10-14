@@ -78,11 +78,6 @@ class _SettingsState extends State<Settings> {
     AppNotification.show(context, SnackBar(content: Text(value)));
   }
 
-  Future<void> _logout() async {
-    await AuthService.logout();
-    if (mounted) Navigator.pushReplacementNamed(context, '/login');
-  }
-
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -113,12 +108,6 @@ class _SettingsState extends State<Settings> {
                     ),
                   ),
                 ]),
-                const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                ),
               ],
             ),
           ),

@@ -374,6 +374,18 @@ class _TripRequestContentState extends State<_TripRequestContent>
       borderRadius: 18,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (constraints.maxWidth < 760) {
+            return _trips.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('No trip requests found.'),
+                  )
+                : Column(
+                    children: _trips
+                        .map(_buildRequestCard)
+                        .toList(growable: false),
+                  );
+          }
           final width = constraints.maxWidth < 760
               ? 760.0
               : constraints.maxWidth;
@@ -387,7 +399,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
                   const Divider(height: 1, color: AppColors.border),
                   if (_trips.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.all(28),
+                      padding: EdgeInsets.all(24),
                       child: Text('No trip requests found.'),
                     )
                   else
@@ -405,6 +417,84 @@ class _TripRequestContentState extends State<_TripRequestContent>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(_TripRequestData trip) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  trip.driverName,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StatusBadge(status: trip.status),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _mobileDetail('Destination', trip.destination),
+          _mobileDetail('Vehicle', trip.vehicle),
+          _mobileDetail('Departure', trip.departure),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: _ViewDetailsButton(onPressed: () => _showDetails(trip)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobileDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.mutedDark, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '—' : value,
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

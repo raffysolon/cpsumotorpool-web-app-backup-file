@@ -298,12 +298,6 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
               );
             },
           ),
-          const SizedBox(width: 10),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
-          ),
         ],
       ),
     );

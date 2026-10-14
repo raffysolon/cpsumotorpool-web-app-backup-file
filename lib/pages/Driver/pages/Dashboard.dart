@@ -1,4 +1,3 @@
-import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -401,8 +400,8 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   String _activeActionLabel(Map<String, dynamic> trip) {
     final tripStatus = '${trip['status'] ?? trip['effective_status'] ?? ''}'
-        .trim()
-        .toLowerCase();
+      .trim()
+      .toLowerCase();
     final movements =
         (trip['movements'] is List ? trip['movements'] as List : const [])
             .whereType<Map>()
@@ -415,8 +414,7 @@ class _DriverDashboardState extends State<DriverDashboard>
         .toList();
     final outbound = outboundMatches.isEmpty ? null : outboundMatches.first;
     final returnMovement = returnMatches.isEmpty ? null : returnMatches.first;
-    if (tripStatus == 'active' &&
-        '${outbound?['status'] ?? ''}' != 'completed') {
+    if (tripStatus == 'active' && '${outbound?['status'] ?? ''}' != 'completed') {
       return 'End Trip';
     }
     if ('${returnMovement?['status'] ?? ''}' == 'active') {
@@ -453,14 +451,14 @@ class _DriverDashboardState extends State<DriverDashboard>
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
           borderRadius: 18,
           child: const Center(
-            child: Text(
-              'No active trip right now',
-              style: TextStyle(
-                color: _muted,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+          child: Text(
+            'No active trip right now',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
+          ),
           ),
         ),
       );
@@ -468,8 +466,8 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     final trip = _activeTrip!;
     final vehicle = trip['vehicle'] is Map
-        ? Map<String, dynamic>.from(trip['vehicle'] as Map)
-        : const <String, dynamic>{};
+      ? Map<String, dynamic>.from(trip['vehicle'] as Map)
+      : const <String, dynamic>{};
     final vehicleLabel = _vehicleLabel(vehicle);
     final route = _routeText(trip);
     final actionLabel = _activeActionLabel(trip);
@@ -636,19 +634,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     return Row(
       children: [
-        Container(
-          width: narrow ? 34 : 42,
-          height: narrow ? 34 : 42,
-          decoration: BoxDecoration(
-            color: _green,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            Icons.local_shipping_rounded,
-            color: Colors.white,
-            size: narrow ? 19 : 23,
-          ),
-        ),
+        _buildBrandMark(size: narrow ? 34 : 42),
         const SizedBox(width: 11),
         const Text(
           'CPSU MOTORPOOL',
@@ -683,13 +669,17 @@ class _DriverDashboardState extends State<DriverDashboard>
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: _green,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(
-        Icons.local_shipping_rounded,
         color: Colors.white,
-        size: size * .55,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _line),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          'assets/images/cpsu logo.png',
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
@@ -809,8 +799,8 @@ class _DriverDashboardState extends State<DriverDashboard>
           color: _green,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(
-              color: AppColors.brandDeep.withValues(alpha: 0.18),
+              BoxShadow(
+                color: AppColors.brandDeep.withValues(alpha: 0.18),
               blurRadius: 15,
               offset: Offset(0, 7),
             ),
@@ -916,13 +906,14 @@ class _DriverDashboardState extends State<DriverDashboard>
           : actionLabel == 'End Return Trip'
           ? 'Return trip ended. Arrival time was recorded automatically.'
           : 'Trip ended. Arrival time was recorded automatically.';
-      AppNotification.show(context, SnackBar(content: Text(successMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
     } catch (error) {
       if (!mounted) return;
-      AppNotification.show(
+      ScaffoldMessenger.of(
         context,
-        SnackBar(content: Text('Unable to end trip: $error')),
-      );
+      ).showSnackBar(SnackBar(content: Text('Unable to end trip: $error')));
     }
   }
 
@@ -1116,8 +1107,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   }
 
   void _showUnavailableMessage(String section) {
-    AppNotification.show(
-      context,
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$section is ready for the next feature update.')),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/AdminCreateTripTicket.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
@@ -166,13 +167,9 @@ class AppColors {
   static const Color iconGreen4 = Color(0xFF166534);
 }
 
-// ─── Typography (system body, Playfair Display titles, Oswald labels) ───
+// ─── Typography (consistent Google Fonts Play) ───
 class AppTypography {
   AppTypography._();
-
-  static const String? body = null;
-  static const String display = 'Playfair Display';
-  static const String label = 'Oswald';
 
   static TextStyle displayTitle({
     Color? color,
@@ -180,8 +177,7 @@ class AppTypography {
     FontWeight fontWeight = FontWeight.w800,
     double? letterSpacing,
     double? height,
-  }) => TextStyle(
-    fontFamily: display,
+  }) => GoogleFonts.play(
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
@@ -194,8 +190,7 @@ class AppTypography {
     double fontSize = 13,
     FontWeight fontWeight = FontWeight.w600,
     double letterSpacing = 1.2,
-  }) => TextStyle(
-    fontFamily: label,
+  }) => GoogleFonts.play(
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
@@ -208,8 +203,7 @@ class AppTypography {
     FontWeight fontWeight = FontWeight.w400,
     double? height,
     double? letterSpacing,
-  }) => TextStyle(
-    fontFamily: body,
+  }) => GoogleFonts.play(
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
@@ -222,20 +216,15 @@ class AppTypography {
     double fontSize = 16,
     FontWeight fontWeight = FontWeight.w700,
     double letterSpacing = 0.3,
-  }) => TextStyle(
-    fontFamily: body,
+  }) => GoogleFonts.play(
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
     letterSpacing: letterSpacing,
   );
 
-  static TextTheme textTheme(TextTheme base) => base
-      .apply(
-        fontFamily: body,
-        displayColor: AppColors.navy,
-        bodyColor: AppColors.navy,
-      )
+  static TextTheme textTheme(TextTheme base) => GoogleFonts.playTextTheme(base)
+      .apply(displayColor: AppColors.navy, bodyColor: AppColors.navy)
       .copyWith(
         displayLarge: displayTitle(fontSize: 32),
         displayMedium: displayTitle(fontSize: 28),
@@ -740,13 +729,17 @@ class _SidebarState extends State<_Sidebar> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.local_shipping_rounded,
                         color: Colors.white,
-                        size: 22,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/images/cpsu logo.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                     if (!compact) ...[
@@ -1069,7 +1062,7 @@ class AdminNotificationBell extends StatelessWidget {
   }
 }
 
-// ─── Reusable Page Header (title + notification + profile) ───
+// ─── Reusable Page Header (title + notification) ───
 class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
@@ -1128,27 +1121,6 @@ class PageHeader extends StatelessWidget {
                           .showNotificationsDialog(context),
                 );
               },
-            ),
-            const SizedBox(width: 10),
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.28),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 22),
             ),
           ],
         );

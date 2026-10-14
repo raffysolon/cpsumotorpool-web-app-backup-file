@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) =>
           AppNotification.host(child: child ?? const SizedBox.shrink()),
       // ─── Route Definitions ───
-      initialRoute: '/login',
+      initialRoute: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
       routes: {
         '/splash': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),

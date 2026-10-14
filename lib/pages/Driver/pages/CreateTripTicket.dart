@@ -150,13 +150,17 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
           width: narrow ? 36 : 42,
           height: narrow ? 36 : 42,
           decoration: BoxDecoration(
-            color: _green,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            Icons.local_shipping_rounded,
             color: Colors.white,
-            size: narrow ? 20 : 23,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _line),
+          ),
+          padding: const EdgeInsets.all(2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              'assets/images/cpsu logo.png',
+              fit: BoxFit.contain,
+            ),
           ),
         ),
         const SizedBox(width: 12),

@@ -1,11 +1,9 @@
-import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
-import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 
 // === Scheduled trips page: approved trips that have not started ===
 class ScheduleTripPage extends StatefulWidget {
@@ -79,36 +77,31 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
     try {
       final result = await TripService.getMyTrips();
       final rawTrips = result is List ? result : const [];
-      final nextTrips = rawTrips
-          .whereType<Map>()
-          .where((trip) {
-            final status = (trip['effective_status'] ?? trip['status'] ?? '')
-                .toString()
-                .trim()
-                .toLowerCase();
-            return status == 'scheduled';
-          })
-          .map<Trip>((trip) {
-            final map = trip as Map<String, dynamic>;
-            final vehicle = map['vehicle'] is Map
-                ? Map<String, dynamic>.from(map['vehicle'] as Map)
-                : const <String, dynamic>{};
-            final vehicleLabel = _vehicleLabel(vehicle);
-            final scheduled = map['scheduled_departure']?.toString();
-            final route =
-                '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'.trim();
-            return Trip(
-              id: (map['id'] ?? 0).toString(),
-              route: route.isEmpty ? 'Trip request' : route,
-              status: 'Scheduled',
-              vehicle: vehicleLabel,
-              departureTime: _formatDeparture(scheduled),
-              expectedArrival: '—',
-              scheduledDeparture:
-                  DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
-            );
-          })
-          .toList();
+      final nextTrips = rawTrips.whereType<Map>().where((trip) {
+        final status = (trip['effective_status'] ?? trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return status == 'scheduled';
+      }).map<Trip>((trip) {
+        final map = trip as Map<String, dynamic>;
+        final vehicle = map['vehicle'] is Map
+          ? Map<String, dynamic>.from(map['vehicle'] as Map)
+          : const <String, dynamic>{};
+        final vehicleLabel = _vehicleLabel(vehicle);
+        final scheduled = map['scheduled_departure']?.toString();
+        final route = '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
+            .trim();
+        return Trip(
+          id: (map['id'] ?? 0).toString(),
+          route: route.isEmpty ? 'Trip request' : route,
+          status: 'Scheduled',
+          vehicle: vehicleLabel,
+          departureTime: _formatDeparture(scheduled),
+          expectedArrival: '—',
+          scheduledDeparture: DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
+        );
+      }).toList();
 
       if (!mounted) return;
       if (!background || _hasTripsChanged(nextTrips)) {
@@ -248,13 +241,50 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     itemCount: trips.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) =>
-                        _buildTripCard(trips[index]),
+                    itemBuilder: (context, index) => _buildTripCard(trips[index]),
                   ),
           ),
         ),
         if (_isPrintingTicket)
-          const InteractionLoadingOverlay(message: 'Opening trip ticket...'),
+          Positioned.fill(
+            child: ColoredBox(
+              color: const Color(0x66000000),
+              child: Center(
+                child: Card(
+                  elevation: 8,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: CircularProgressIndicator(strokeWidth: 4),
+                        ),
+                        SizedBox(height: 18),
+                        Text(
+                          'Generating trip ticket...',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Please wait',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -538,8 +568,7 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
     try {
       await TripService.startTrip(int.tryParse(tripId) ?? 0);
       if (!mounted) return;
-      AppNotification.show(
-        context,
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Trip started. Departure time was recorded automatically.',
@@ -549,10 +578,9 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
       await _loadTrips();
     } catch (error) {
       if (!mounted) return;
-      AppNotification.show(
+      ScaffoldMessenger.of(
         context,
-        SnackBar(content: Text('Unable to start trip: $error')),
-      );
+      ).showSnackBar(SnackBar(content: Text('Unable to start trip: $error')));
     }
   }
 
@@ -567,8 +595,7 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
       await openPdf(response.bodyBytes, int.tryParse(tripId) ?? 0);
     } catch (error) {
       if (!mounted) return;
-      AppNotification.show(
-        context,
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to print trip ticket: $error')),
       );
     } finally {

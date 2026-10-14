@@ -25,7 +25,6 @@ class _LoginPageState extends State<LoginPage>
   final _passwordCtrl = TextEditingController();
   final _passwordFocusNode = FocusNode();
   final _passwordVisibilityFocusNode = FocusNode(canRequestFocus: false);
-  bool _rememberMe = true;
   bool _obscurePassword = true;
   bool _emailFocused = false;
   bool _passwordFocused = false;
@@ -458,32 +457,27 @@ class _LoginPageState extends State<LoginPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: Checkbox(
-                      value: _rememberMe,
-                      activeColor: _brandGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      onChanged: (v) =>
-                          setState(() => _rememberMe = v ?? false),
-                    ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => AppNotification.showMessage(
+                    'Contact the Motorpool administrator to reset your password.',
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Remember me',
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Forgot password?',
                     style: AppTypography.bodyStyle(
-                      color: _textDark,
+                      color: _brandGreen,
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 16),
               SizedBox(
