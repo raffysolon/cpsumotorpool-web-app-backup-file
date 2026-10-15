@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 
@@ -29,21 +30,42 @@ class NotificationService {
     );
   }
 
-  static Future<dynamic> getNotifications() async {
+  static Future<List<Map<String, dynamic>>> getNotifications() async {
+    debugPrint('NotificationService.getNotifications(): GET $baseUrl/notifications');
     final response = await http.get(
       Uri.parse('$baseUrl/notifications'),
       headers: await _headers(),
     );
 
-    return _parseResponse(response);
+    debugPrint('NotificationService.getNotifications(): status=${response.statusCode}');
+    debugPrint('NotificationService.getNotifications(): body=${response.body}');
+    
+    final result = await _parseResponse(response);
+    final records = result is List
+        ? result
+        : result is Map && result['data'] is List
+        ? result['data'] as List
+        : throw const FormatException(
+            'Unexpected notifications response format.',
+          );
+
+    debugPrint('NotificationService.getNotifications(): Found ${records.length} notifications');
+    return records
+        .whereType<Map>()
+        .map((notification) => Map<String, dynamic>.from(notification))
+        .toList();
   }
 
   static Future<dynamic> getUnreadCount() async {
+    debugPrint('NotificationService.getUnreadCount(): GET $baseUrl/notifications/unread-count');
     final response = await http.get(
       Uri.parse('$baseUrl/notifications/unread-count'),
       headers: await _headers(),
     );
 
+    debugPrint('NotificationService.getUnreadCount(): status=${response.statusCode}');
+    debugPrint('NotificationService.getUnreadCount(): body=${response.body}');
+    
     return _parseResponse(response);
   }
 

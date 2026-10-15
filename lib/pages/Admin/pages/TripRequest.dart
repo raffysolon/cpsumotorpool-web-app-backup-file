@@ -9,6 +9,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 class TripRequest extends StatelessWidget {
   const TripRequest({super.key});
@@ -327,7 +328,10 @@ class _TripRequestContentState extends State<_TripRequestContent>
         AdminPageScaffold(
           title: 'Trip Requests',
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SkeletonWidgetsWeb.tripTable(rowCount: 6),
+                )
               : RefreshIndicator(
                   onRefresh: _loadTrips,
                   child: SingleChildScrollView(

@@ -33,8 +33,7 @@ class AdminNotificationsController {
       final count = countResult is Map
           ? ((countResult['count'] ?? 0) as num).toInt()
           : 0;
-      final items = (listResult is List ? listResult : const [])
-          .whereType<Map>()
+      final items = listResult
           .map<Map<String, dynamic>>(
             (item) => {
               'id': item['id'] ?? 0,

@@ -4,6 +4,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 // === Trip history page: completed driver trip tickets ===
 class HistoryPage extends StatefulWidget {
@@ -40,9 +41,8 @@ class _HistoryPageState extends State<HistoryPage> {
       final result = await TripService.getMyTrips(status: 'completed');
       if (!mounted) return;
       setState(() {
-        _trips = (result is List ? result : const [])
-            .whereType<Map>()
-            .map((trip) => _tripFromApi(Map<String, dynamic>.from(trip)))
+        _trips = result
+            .map(_tripFromApi)
             .toList();
         _isLoading = false;
       });
@@ -121,7 +121,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 _buildDateRangeFilter(),
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: SkeletonWidgetsWeb.tripList(itemCount: 5),
+                        )
                       : _trips.isEmpty
                       ? _buildEmptyState()
                       : ListView.separated(

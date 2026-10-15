@@ -7,6 +7,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 class AdminCreateTripTicketPage extends StatelessWidget {
   const AdminCreateTripTicketPage({super.key});
@@ -576,11 +577,9 @@ class _AdminCreateTripTicketContentState
 
   Widget _buildTable() {
     if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: CircularProgressIndicator(),
-        ),
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: SkeletonWidgetsWeb.tripTable(rowCount: 5),
       );
     }
 
@@ -643,7 +642,7 @@ class _AdminCreateTripTicketContentState
           Expanded(flex: 3, child: Text('ASSIGNED DRIVER', style: style)),
           Expanded(flex: 3, child: Text('ASSIGNED VEHICLE', style: style)),
           Expanded(flex: 2, child: Text('STATUS', style: style)),
-          SizedBox(width: 260),
+          SizedBox(width: 228),
         ],
       ),
     );
@@ -679,42 +678,42 @@ class _AdminCreateTripTicketContentState
           Expanded(flex: 2, child: _StatusBadge(status: status)),
           const SizedBox(width: 8),
           SizedBox(
-            width: 260,
+            width: 220,
             child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _showDetails(trip),
-                    icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: const Text('View Details'),
+                    icon: const Icon(Icons.visibility_outlined, size: 14),
+                    label: const Text('Details'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isOpeningTicket
                         ? null
                         : () => _openTripTicket(trip),
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                    label: const Text('View Trip Ticket'),
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 14),
+                    label: const Text('Ticket'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

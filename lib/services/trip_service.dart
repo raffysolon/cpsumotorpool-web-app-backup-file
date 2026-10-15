@@ -44,16 +44,30 @@ class TripService {
     );
   }
 
-  static Future<dynamic> getMyTrips({String? status}) async {
+  static Future<List<Map<String, dynamic>>> getMyTrips({String? status}) async {
     final uri = Uri.parse(
       status == null || status.isEmpty
           ? '$baseUrl/my-trips'
           : '$baseUrl/my-trips?status=$status',
     );
 
+    debugPrint('TripService.getMyTrips(): GET $uri');
     final response = await http.get(uri, headers: await _headers());
+    debugPrint('TripService.getMyTrips(): status=${response.statusCode}');
+    debugPrint('TripService.getMyTrips(): body=${response.body}');
+    
+    final result = await _parseResponse(response);
+    final records = result is List
+        ? result
+        : result is Map && result['data'] is List
+        ? result['data'] as List
+        : throw const FormatException('Unexpected trips response format.');
 
-    return _parseResponse(response);
+    debugPrint('TripService.getMyTrips(): Found ${records.length} trips');
+    return records
+        .whereType<Map>()
+        .map((trip) => Map<String, dynamic>.from(trip))
+        .toList();
   }
 
   static Future<dynamic> getAllTrips({

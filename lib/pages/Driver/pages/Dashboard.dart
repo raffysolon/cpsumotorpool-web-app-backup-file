@@ -5,6 +5,7 @@ import 'package:cpsumotorpooladmin/services/notification_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 import 'History.dart';
 import 'MyTrips.dart';
@@ -106,19 +107,19 @@ class _DriverDashboardState extends State<DriverDashboard>
     }
 
     try {
-      final result = await TripService.getMyTrips();
-      final trips = result is List ? result : const [];
+      final trips = await TripService.getMyTrips();
       Map<String, dynamic>? nextActiveTrip;
       for (final trip in trips.whereType<Map>()) {
-        final status = (trip['effective_status'] ?? trip['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        if (status == 'active') {
+        // Use stored status, then fall back to effective_status
+        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        
+        if (effectiveStatus == 'active') {
           nextActiveTrip = Map<String, dynamic>.from(trip);
           break;
         }
-        if (status == 'scheduled' && nextActiveTrip == null) {
+        // Show scheduled trips if no active trip found
+        if (effectiveStatus == 'scheduled' && nextActiveTrip == null) {
           nextActiveTrip = Map<String, dynamic>.from(trip);
         }
       }
@@ -133,7 +134,8 @@ class _DriverDashboardState extends State<DriverDashboard>
           _isLoadingActiveTrip = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Dashboard._loadActiveTrip error: $error');
       if (background) return;
       if (!mounted) return;
       setState(() {
@@ -149,57 +151,50 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   Future<void> _loadTripCounts({bool background = false}) async {
     try {
-      final allTrips = await TripService.getMyTrips();
-      final rawTrips = allTrips is List ? allTrips : const [];
-      final visibleMyTrips = rawTrips.whereType<Map>().where((trip) {
-        final status = (trip['effective_status'] ?? trip['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        return status != 'active' && status != 'completed';
+      final rawTrips = await TripService.getMyTrips();
+      
+      // Count trips for "My Trips" - everything except active and completed
+      final visibleMyTrips = rawTrips.where((trip) {
+        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        return effectiveStatus != 'active' && effectiveStatus != 'completed';
       }).toList();
-      final completedTrips = rawTrips.whereType<Map>().where((trip) {
-        final status = (trip['effective_status'] ?? trip['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        return status == 'completed';
+      
+      // Count completed trips for history
+      final completedTrips = rawTrips.where((trip) {
+        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        return effectiveStatus == 'completed';
       }).toList();
-      final approvedNotifications = rawTrips
-          .whereType<Map>()
-          .where((trip) {
-            final status = (trip['effective_status'] ?? trip['status'] ?? '')
-                .toString()
-                .trim()
-                .toLowerCase();
-            return status == 'approved' ||
-                status == 'scheduled' ||
-                status == 'active';
+      
+      // Build notification list from approved/scheduled/active trips
+      final approvedNotifications = rawTrips.where((trip) {
+            final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+            final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+            return storedStatus == 'approved' ||
+                effectiveStatus == 'scheduled' ||
+                effectiveStatus == 'active';
           })
           .map<Map<String, String>>((trip) {
             final origin = (trip['origin'] ?? 'Origin').toString();
-            final destination = (trip['destination'] ?? 'Destination')
-                .toString();
+            final destination = (trip['destination'] ?? 'Destination').toString();
             final route = '$origin to $destination';
-            final status =
-                (trip['effective_status'] ?? trip['status'] ?? 'approved')
-                    .toString();
+            final storedStatus = (trip['status'] ?? 'approved').toString();
             return {
               'title': 'Trip update',
               'message': route,
-              'time': status.toUpperCase(),
+              'time': storedStatus.toUpperCase(),
             };
           })
           .toList();
+          
       if (!mounted) return;
 
       final nextMyTripsCount = visibleMyTrips.length;
       final nextScheduledTripsCount = rawTrips.whereType<Map>().where((trip) {
-        final status = (trip['effective_status'] ?? trip['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        return status == 'scheduled';
+        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        return effectiveStatus == 'scheduled';
       }).length;
       final nextHistoryTripsCount = completedTrips.length;
       final nextNotifications = approvedNotifications;
@@ -217,7 +212,8 @@ class _DriverDashboardState extends State<DriverDashboard>
           _isLoadingTripCounts = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Dashboard._loadTripCounts error: $error');
       if (background) return;
       if (!mounted) return;
       setState(() {
@@ -233,11 +229,11 @@ class _DriverDashboardState extends State<DriverDashboard>
   Future<void> _loadNotifications({bool background = false}) async {
     try {
       final countResult = await NotificationService.getUnreadCount();
-      final listResult = await NotificationService.getNotifications();
+      final notificationsResult = await NotificationService.getNotifications();
 
-      final count = countResult is Map ? (countResult['count'] ?? 0) as int : 0;
-      final notifications = (listResult is List ? listResult : const [])
-          .whereType<Map>()
+      final countValue = countResult is Map ? countResult['count'] : null;
+      final count = countValue is num ? countValue.toInt() : 0;
+      final notifications = notificationsResult
           .map<Map<String, dynamic>>(
             (item) => {
               'id': item['id'] ?? 0,
@@ -257,7 +253,8 @@ class _DriverDashboardState extends State<DriverDashboard>
           _notifications = notifications;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Dashboard._loadNotifications error: $error');
       if (background) return;
       if (!mounted) return;
       setState(() {
@@ -434,14 +431,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   Widget _buildCurrentActiveTripCard() {
     if (_isLoadingActiveTrip) {
-      return ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 248),
-        child: GlassCard(
-          padding: const EdgeInsets.all(24),
-          borderRadius: 18,
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-      );
+      return SkeletonWidgetsWeb.activeTripCard();
     }
 
     if (_activeTrip == null) {

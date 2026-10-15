@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 // === My trips page: filterable list of driver trip requests ===
 class MyTripsPage extends StatefulWidget {
@@ -34,6 +35,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
   bool _isOpeningTicket = false;
   bool _isPageVisible = true;
   bool _isRefreshRunning = false;
+  String? _loadError;
   String _selectedFilter = 'All';
   List<Trip> _trips = [];
   Timer? _refreshTimer;
@@ -89,32 +91,29 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
     }
 
     try {
-      final result = await TripService.getMyTrips();
-      final rawTrips = result is List ? result : const [];
+      final rawTrips = await TripService.getMyTrips();
       final nextTrips = rawTrips
           .where((trip) {
-            final map = trip as Map<String, dynamic>;
-            final status =
-                (map['effective_status'] ?? map['status'] ?? 'pending')
-                    .toString()
-                    .trim()
-                    .toLowerCase();
-            return status != 'completed' && status != 'scheduled';
+            // Check stored status first, then computed effective_status
+            final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+            final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+            
+            // Show all trips except completed ones
+            // Include pending, approved, scheduled, active, and denied
+            return effectiveStatus != 'completed';
           })
           .map<Trip>((trip) {
-            final map = trip as Map<String, dynamic>;
-            final rawStatus =
-                (map['effective_status'] ?? map['status'] ?? 'pending')
-                    .toString();
+            // Use stored status for display, not effective_status
+            final rawStatus = (trip['status'] ?? 'pending').toString();
             final status = _normalizeStatus(rawStatus);
-            final vehicle = map['vehicle'] is Map
-              ? Map<String, dynamic>.from(map['vehicle'] as Map)
-              : const <String, dynamic>{};
+            final vehicle = trip['vehicle'] is Map
+                ? Map<String, dynamic>.from(trip['vehicle'] as Map)
+                : const <String, dynamic>{};
             final vehicleLabel = _vehicleLabel(vehicle);
-            final scheduledDeparture = map['scheduled_departure']?.toString();
+            final scheduledDeparture = trip['scheduled_departure']?.toString();
             return Trip(
-              id: (map['id'] ?? 0).toString(),
-              route: '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
+              id: (trip['id'] ?? 0).toString(),
+              route: '${trip['origin'] ?? ''} to ${trip['destination'] ?? ''}'
                   .trim(),
               status: status,
               vehicle: vehicleLabel,
@@ -132,14 +131,15 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
       if (!background || _hasTripsChanged(nextTrips)) {
         setState(() {
           _trips = nextTrips;
+          _loadError = null;
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (background) return;
       if (!mounted) return;
       setState(() {
-        _trips = [];
+        _loadError = 'Unable to load trips: ${error.toString()}';
         _isLoading = false;
       });
     } finally {
@@ -309,12 +309,17 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
           ),
           body: DriverShellAtmosphere(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: SkeletonWidgetsWeb.tripList(itemCount: 4),
+                  )
                 : Column(
                   children: [
                     _buildFilterTabs(),
                     Expanded(
-                      child: _filteredTrips.isEmpty
+                      child: _loadError != null
+                          ? _buildLoadError()
+                          : _filteredTrips.isEmpty
                           ? _buildEmptyState()
                           : ListView.separated(
                               padding: const EdgeInsets.fromLTRB(
@@ -418,6 +423,28 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
       ),
       showCheckmark: false,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+    );
+  }
+
+  Widget _buildLoadError() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: _muted, size: 42),
+          const SizedBox(height: 12),
+          Text(
+            _loadError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _loadTrips,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 

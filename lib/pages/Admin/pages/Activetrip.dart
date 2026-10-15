@@ -7,6 +7,7 @@ import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // ACTIVE TRIPS PAGE
@@ -361,11 +362,9 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
 
   Widget _buildTable() {
     if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: CircularProgressIndicator(),
-        ),
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: SkeletonWidgetsWeb.tripTable(rowCount: 5),
       );
     }
 

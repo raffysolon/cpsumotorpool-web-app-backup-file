@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/coordinator_assignment_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // COORDINATOR ASSIGNMENTS PAGE
@@ -280,7 +281,10 @@ class _CoordinatorAssignmentsContentState
         child: GlassCard(
           padding: EdgeInsets.zero,
           borderRadius: 18,
-          child: const Center(child: CircularProgressIndicator()),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SkeletonWidgetsWeb.tripTable(rowCount: 3),
+          ),
         ),
       );
     }
@@ -342,6 +346,8 @@ class _CoordinatorAssignmentsContentState
                     fontWeight: FontWeight.w600,
                     color: AppColors.navy,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -350,6 +356,8 @@ class _CoordinatorAssignmentsContentState
                     fontSize: 12,
                     color: AppColors.mutedDark,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -360,6 +368,8 @@ class _CoordinatorAssignmentsContentState
             child: Text(
               assignment.driverName,
               style: const TextStyle(fontSize: 13, color: AppColors.navy),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
           // Vehicle
@@ -368,6 +378,8 @@ class _CoordinatorAssignmentsContentState
             child: Text(
               assignment.vehicleName,
               style: const TextStyle(fontSize: 13, color: AppColors.navy),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
           // Actions

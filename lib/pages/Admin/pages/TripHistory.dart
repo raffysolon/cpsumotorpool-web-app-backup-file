@@ -6,6 +6,7 @@ import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 class TripHistory extends StatelessWidget {
   const TripHistory({super.key});
@@ -386,11 +387,9 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
 
   Widget _table() {
     if (_loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: CircularProgressIndicator(),
-        ),
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: SkeletonWidgetsWeb.tripTable(rowCount: 7),
       );
     }
     return GlassCard(

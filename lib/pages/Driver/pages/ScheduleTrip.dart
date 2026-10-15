@@ -75,25 +75,22 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
     }
 
     try {
-      final result = await TripService.getMyTrips();
-      final rawTrips = result is List ? result : const [];
-      final nextTrips = rawTrips.whereType<Map>().where((trip) {
-        final status = (trip['effective_status'] ?? trip['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        return status == 'scheduled';
+      final rawTrips = await TripService.getMyTrips();
+      final nextTrips = rawTrips.where((trip) {
+        // Use stored status first, then computed effective_status
+        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        return effectiveStatus == 'scheduled';
       }).map<Trip>((trip) {
-        final map = trip as Map<String, dynamic>;
-        final vehicle = map['vehicle'] is Map
-          ? Map<String, dynamic>.from(map['vehicle'] as Map)
+        final vehicle = trip['vehicle'] is Map
+          ? Map<String, dynamic>.from(trip['vehicle'] as Map)
           : const <String, dynamic>{};
         final vehicleLabel = _vehicleLabel(vehicle);
-        final scheduled = map['scheduled_departure']?.toString();
-        final route = '${map['origin'] ?? ''} to ${map['destination'] ?? ''}'
+        final scheduled = trip['scheduled_departure']?.toString();
+        final route = '${trip['origin'] ?? ''} to ${trip['destination'] ?? ''}'
             .trim();
         return Trip(
-          id: (map['id'] ?? 0).toString(),
+          id: (trip['id'] ?? 0).toString(),
           route: route.isEmpty ? 'Trip request' : route,
           status: 'Scheduled',
           vehicle: vehicleLabel,
@@ -110,7 +107,8 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('ScheduleTrip._loadTrips error: $error');
       if (background) return;
       if (!mounted) return;
       setState(() {

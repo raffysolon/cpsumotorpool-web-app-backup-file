@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/driver_service.dart';
 import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 // === Combined vehicle and driver management page ===
 // Route: /vehicles
@@ -213,7 +214,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
               ),
               SizedBox(height: 2),
               Text(
-                'Province of Negros Occidental - Motorpool Division',
+                'CPSU Motor Pool — Fleet Management',
                 style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
               ),
             ],
@@ -312,9 +313,9 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Widget _loadingIndicator() {
-    return const Padding(
-      padding: EdgeInsets.all(40),
-      child: Center(child: CircularProgressIndicator()),
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: SkeletonWidgetsWeb.tripTable(rowCount: 6),
     );
   }
 
