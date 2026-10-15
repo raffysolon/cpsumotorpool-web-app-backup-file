@@ -29,11 +29,19 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _isLoading = true;
   bool _isDownloading = false;
   List<Trip> _trips = [];
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadTrips();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTrips() async {
@@ -98,6 +106,28 @@ class _HistoryPageState extends State<HistoryPage> {
     return months[month - 1];
   }
 
+  List<Trip> get _filteredTrips {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _trips;
+
+    return _trips.where((trip) {
+      final searchableValues = <String>[
+        trip.route,
+        trip.date,
+        trip.distance,
+        trip.duration,
+        trip.status,
+        for (final movement in trip.movements)
+          movement['origin']?.toString() ?? '',
+        for (final movement in trip.movements)
+          movement['destination']?.toString() ?? '',
+      ];
+      return searchableValues.any(
+        (value) => value.toLowerCase().contains(query),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -119,21 +149,24 @@ class _HistoryPageState extends State<HistoryPage> {
             child: Column(
               children: [
                 _buildDateRangeFilter(),
+                _buildSearchBar(),
                 Expanded(
-                  child: _isLoading
+                  child: _isLoading && _trips.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.all(20),
                           child: SkeletonWidgetsWeb.tripList(itemCount: 5),
                         )
-                      : _trips.isEmpty
-                      ? _buildEmptyState()
+                      : _filteredTrips.isEmpty
+                      ? _searchQuery.trim().isNotEmpty
+                            ? _buildNoSearchResults()
+                            : _buildEmptyState()
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                          itemCount: _trips.length,
+                          itemCount: _filteredTrips.length,
                           separatorBuilder: (_, _) =>
                               const SizedBox(height: 14),
                           itemBuilder: (context, index) =>
-                              _buildTripCard(_trips[index]),
+                              _buildTripCard(_filteredTrips[index]),
                         ),
                 ),
               ],
@@ -145,6 +178,60 @@ class _HistoryPageState extends State<HistoryPage> {
             message: 'Downloading trip ticket...',
           ),
       ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        borderRadius: 12,
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: _muted, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: const InputDecoration(
+                  hintText: 'Search trips...',
+                  hintStyle: TextStyle(fontSize: 13, color: _muted),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: const TextStyle(fontSize: 14, color: _ink),
+              ),
+            ),
+            if (_searchQuery.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
+                tooltip: 'Clear search',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResults() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'No trips match your search',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _muted, fontSize: 14),
+        ),
+      ),
     );
   }
 
