@@ -207,7 +207,10 @@ class _CoordinatorAssignmentsContentState
     return AdminPageScaffold(
       title: 'Assignments',
       child: SingleChildScrollView(
+        padding: EdgeInsets.zero,
+        physics: const ClampingScrollPhysics(),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
@@ -276,15 +279,12 @@ class _CoordinatorAssignmentsContentState
   // ─── Table Container ───
   Widget _buildTable(BuildContext context) {
     if (_isLoading) {
-      return SizedBox(
-        height: 180,
-        child: GlassCard(
-          padding: EdgeInsets.zero,
-          borderRadius: 18,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: SkeletonWidgetsWeb.tripTable(rowCount: 3),
-          ),
+      return GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SkeletonWidgetsWeb.tripTable(rowCount: 3),
         ),
       );
     }
@@ -302,6 +302,7 @@ class _CoordinatorAssignmentsContentState
             child: SizedBox(
               width: tableWidth,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildTableHeader(),
                   const Divider(height: 1, color: AppColors.border),
@@ -309,6 +310,7 @@ class _CoordinatorAssignmentsContentState
                     final i = entry.key;
                     final assignment = entry.value;
                     return Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildTableRow(context, assignment),
                         if (i < _displayedAssignments.length - 1)
@@ -330,7 +332,7 @@ class _CoordinatorAssignmentsContentState
     _CoordinatorAssignment assignment,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
           // Campus / Coordinator

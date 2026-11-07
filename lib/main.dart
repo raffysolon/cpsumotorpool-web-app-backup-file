@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'widgets/app_shell.dart';
@@ -12,6 +14,7 @@ import 'pages/Admin/pages/SnycLogs.dart';
 import 'pages/Admin/pages/TripHistory.dart';
 import 'pages/Admin/pages/TripRequest.dart';
 import 'pages/Admin/pages/CoordinatorAssignments.dart';
+import 'pages/Admin/pages/DeviceRegistry.dart';
 import 'pages/Driver/pages/Dashboard.dart' as driver_dashboard;
 import 'pages/Driver/pages/CreateTripTicket.dart';
 import 'pages/Driver/pages/Settings.dart' as driver_settings;
@@ -26,15 +29,68 @@ void main() {
 }
 
 // ─── Root App Widget ───
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  Timer? _activityTimer;
+  static const Duration _idleTimeout = Duration(minutes: 5);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _resetActivityTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _activityTimer?.cancel();
+    super.dispose();
+  }
+
+  void _resetActivityTimer() {
+    _activityTimer?.cancel();
+    _activityTimer = Timer(_idleTimeout, () async {
+      await AuthService.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+    });
+  }
+
+  void _markActivity() {
+    if (!mounted) return;
+    _resetActivityTimer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _markActivity();
+      final route = ModalRoute.of(context)?.settings.name;
+      if (route != null && route != '/login') {
+        // The app resumed; if the user has been idle for too long, force them out.
+        _resetActivityTimer();
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CPSU MotorPool',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+    return Listener(
+      onPointerDown: (_) => _markActivity(),
+      onPointerMove: (_) => _markActivity(),
+      onPointerUp: (_) => _markActivity(),
+      behavior: HitTestBehavior.translucent,
+      child: MaterialApp(
+        title: 'CPSU MotorPool',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E)),
         useMaterial3: true,
         textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
@@ -48,40 +104,43 @@ class MyApp extends StatelessWidget {
         ),
         textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
       ),
-      builder: (context, child) =>
-          AppNotification.host(child: child ?? const SizedBox.shrink()),
-      // ─── Route Definitions ───
-      initialRoute: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
-      routes: {
-        '/splash': (context) => const SplashScreen(),
-        '/login': (context) => const LoginPage(),
-        '/': (context) => _RoleGuard(role: 'admin', child: const Dashboard()),
-        '/trip-request': (context) =>
-            _RoleGuard(role: 'admin', child: const TripRequest()),
-        '/active-trips': (context) =>
-            _RoleGuard(role: 'admin', child: const ActiveTrip()),
-        '/map': (context) => _RoleGuard(role: 'admin', child: const MapPage()),
-        '/vehicles': (context) =>
-            _RoleGuard(role: 'admin', child: const VehiclesDriversPage()),
-        '/coordinator-assignments': (context) =>
-            _RoleGuard(role: 'admin', child: const CoordinatorAssignments()),
-        '/trip-history': (context) =>
-            _RoleGuard(role: 'admin', child: const TripHistory()),
-        '/sync-logs': (context) =>
-            _RoleGuard(role: 'admin', child: const SyncLogs()),
-        '/settings': (context) =>
-            _RoleGuard(role: 'admin', child: const Settings()),
-        '/driver-dashboard': (context) => _RoleGuard(
-          role: 'driver',
-          child: const driver_dashboard.DriverDashboard(),
-        ),
-        '/driver-create-trip': (context) =>
-            _RoleGuard(role: 'driver', child: const CreateTripTicket()),
-        '/driver-settings': (context) => _RoleGuard(
-          role: 'driver',
-          child: const driver_settings.DriverSettings(),
-        ),
-      },
+        builder: (context, child) =>
+            AppNotification.host(child: child ?? const SizedBox.shrink()),
+        // ─── Route Definitions ───
+        initialRoute: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+        routes: {
+          '/splash': (context) => const SplashScreen(),
+          '/login': (context) => const LoginPage(),
+          '/': (context) => _RoleGuard(role: 'admin', child: const Dashboard()),
+          '/trip-request': (context) =>
+              _RoleGuard(role: 'admin', child: const TripRequest()),
+          '/active-trips': (context) =>
+              _RoleGuard(role: 'admin', child: const ActiveTrip()),
+          '/map': (context) => _RoleGuard(role: 'admin', child: const MapPage()),
+          '/vehicles': (context) =>
+              _RoleGuard(role: 'admin', child: const VehiclesDriversPage()),
+          '/devices': (context) =>
+              _RoleGuard(role: 'admin', child: const DeviceRegistryPage()),
+          '/coordinator-assignments': (context) =>
+              _RoleGuard(role: 'admin', child: const CoordinatorAssignments()),
+          '/trip-history': (context) =>
+              _RoleGuard(role: 'admin', child: const TripHistory()),
+          '/sync-logs': (context) =>
+              _RoleGuard(role: 'admin', child: const SyncLogs()),
+          '/settings': (context) =>
+              _RoleGuard(role: 'admin', child: const Settings()),
+          '/driver-dashboard': (context) => _RoleGuard(
+            role: 'driver',
+            child: const driver_dashboard.DriverDashboard(),
+          ),
+          '/driver-create-trip': (context) =>
+              _RoleGuard(role: 'driver', child: const CreateTripTicket()),
+          '/driver-settings': (context) => _RoleGuard(
+            role: 'driver',
+            child: const driver_settings.DriverSettings(),
+          ),
+        },
+      ),
     );
   }
 

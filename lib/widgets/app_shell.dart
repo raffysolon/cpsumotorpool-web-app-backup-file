@@ -677,6 +677,13 @@ class _SidebarState extends State<_Sidebar> {
         onTap: () => _go(context, '/vehicles'),
       ),
       _NavItem(
+        icon: Icons.router_outlined,
+        label: 'Device Registry',
+        compact: compact,
+        selected: currentRoute == '/devices',
+        onTap: () => _go(context, '/devices'),
+      ),
+      _NavItem(
         icon: Icons.assignment_ind_outlined,
         label: 'Assignments',
         compact: compact,
