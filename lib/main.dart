@@ -39,6 +39,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Timer? _activityTimer;
   static const Duration _idleTimeout = Duration(minutes: 5);
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -58,8 +59,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _activityTimer?.cancel();
     _activityTimer = Timer(_idleTimeout, () async {
       await AuthService.logout();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+      // Use navigatorKey to get context even when timer fires
+      _navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
     });
   }
 
@@ -72,11 +73,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _markActivity();
-      final route = ModalRoute.of(context)?.settings.name;
-      if (route != null && route != '/login') {
-        // The app resumed; if the user has been idle for too long, force them out.
-        _resetActivityTimer();
-      }
     }
   }
 
@@ -88,6 +84,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       onPointerUp: (_) => _markActivity(),
       behavior: HitTestBehavior.translucent,
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: 'CPSU MotorPool',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
