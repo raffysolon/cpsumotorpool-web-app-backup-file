@@ -200,6 +200,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   void _goToPage(int page) {
     if (page < 1 || page > _lastPage) return;
     _currentPage = page;
+    _searchController.clear(); // Clear search when changing pages
     _loadTrips();
   }
 
@@ -428,7 +429,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(
-                hintText: 'Search by driver, vehicle, destination, or date...',
+                hintText: 'Search current page by driver, vehicle, destination...',
                 border: InputBorder.none,
                 isDense: true,
                 hintStyle: TextStyle(
