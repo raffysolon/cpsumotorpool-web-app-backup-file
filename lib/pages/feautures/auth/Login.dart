@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'ForgotPassword.dart';
 import '../../services/auth_service.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -461,8 +462,11 @@ class _LoginPageState extends State<LoginPage>
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => AppNotification.showMessage(
-                    'Contact the Motorpool administrator to reset your password.',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordPage(),
+                    ),
                   ),
                   style: TextButton.styleFrom(
                     minimumSize: const Size(0, 36),
@@ -643,4 +647,3 @@ class _RoadMapPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

@@ -19,6 +19,7 @@ import 'pages/Driver/pages/Dashboard.dart' as driver_dashboard;
 import 'pages/Driver/pages/CreateTripTicket.dart';
 import 'pages/Driver/pages/Settings.dart' as driver_settings;
 import 'pages/feautures/auth/Login.dart';
+import 'pages/feautures/auth/ForgotPassword.dart';
 import 'pages/services/auth_service.dart';
 import 'pages/splash_screen.dart';
 import 'widgets/app_notification.dart';
@@ -108,6 +109,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         routes: {
           '/splash': (context) => const SplashScreen(),
           '/login': (context) => const LoginPage(),
+          '/forgot-password': (context) => const ForgotPasswordPage(),
           '/': (context) => _RoleGuard(role: 'admin', child: const Dashboard()),
           '/trip-request': (context) =>
               _RoleGuard(role: 'admin', child: const TripRequest()),

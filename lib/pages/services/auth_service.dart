@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -74,7 +75,7 @@ class AuthService {
   static Future<Map<String, dynamic>?> getUserData() async {
     final role = await getRole();
     final name = await getName();
-    
+
     if (role != null) {
       return {
         'role': role,
@@ -112,6 +113,39 @@ class AuthService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Unable to change password');
+    }
+  }
+
+  static Future<void> requestPasswordReset(String email) async {
+    late final http.Response response;
+    try {
+      response = await http
+          .post(
+            Uri.parse('$baseUrl/password/forgot'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      throw const LoginException(
+        'The request timed out. Check your connection and try again.',
+      );
+    } on http.ClientException {
+      throw const LoginException(
+        'Cannot connect to the server. Check your connection and try again.',
+      );
+    }
+
+    if (response.statusCode == 429) {
+      throw const LoginException('Too many attempts. Please try again later.');
+    }
+    if (response.statusCode != 200) {
+      throw const LoginException(
+        'Unable to send the request. Please try again later.',
+      );
     }
   }
 }
