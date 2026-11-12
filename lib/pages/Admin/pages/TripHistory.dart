@@ -429,7 +429,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(
-                hintText: 'Search current page by driver, vehicle, destination...',
+                hintText: 'Search current page by driver, vehicle, origin, destination, or date...',
                 border: InputBorder.none,
                 isDense: true,
                 hintStyle: TextStyle(
