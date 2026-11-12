@@ -110,8 +110,10 @@ class _TripHistoryContent extends StatefulWidget {
 
 class _TripHistoryContentState extends State<_TripHistoryContent> {
   List<_TripHistoryData> _trips = [];
+  List<_TripHistoryData> _filteredTrips = [];
   bool _loading = true;
   bool _downloading = false;
+  final TextEditingController _searchController = TextEditingController();
 
   // Pagination state
   int _currentPage = 1;
@@ -123,12 +125,32 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
   void initState() {
     super.initState();
     AdminNotificationsController.instance.refresh();
+    _searchController.addListener(_filterTrips);
     _loadTrips();
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _filterTrips() {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) {
+      setState(() => _filteredTrips = _trips);
+      return;
+    }
+
+    setState(() {
+      _filteredTrips = _trips.where((trip) {
+        return trip.driverName.toLowerCase().contains(query) ||
+            trip.vehicle.toLowerCase().contains(query) ||
+            trip.destination.toLowerCase().contains(query) ||
+            trip.origin.toLowerCase().contains(query) ||
+            trip.departure.toLowerCase().contains(query);
+      }).toList();
+    });
   }
 
   Future<void> _loadTrips() async {
@@ -157,6 +179,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       if (!mounted) return;
       setState(() {
         _trips = trips;
+        _filteredTrips = trips;
         _loading = false;
         if (result is Map) {
           _currentPage = result['current_page'] ?? _currentPage;
@@ -331,7 +354,9 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                         ),
                       ),
                       Text(
-                        '$_totalRecords records',
+                        _searchController.text.isEmpty
+                            ? '$_totalRecords records'
+                            : '${_filteredTrips.length} of $_totalRecords records',
                         style: AppTypography.bodyStyle(
                           fontSize: 13,
                           color: AppColors.mutedDark,
@@ -339,6 +364,8 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildSearchBar(),
                   const SizedBox(height: 16),
                   _table(),
                   if (_lastPage > 1) ...[
@@ -385,6 +412,55 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 12,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search,
+            color: AppColors.mutedDark,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Search by driver, vehicle, destination, or date...',
+                border: InputBorder.none,
+                isDense: true,
+                hintStyle: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 14,
+                ),
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.navy,
+              ),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                _searchController.clear();
+              },
+              icon: const Icon(
+                Icons.clear,
+                size: 18,
+                color: AppColors.mutedDark,
+              ),
+              tooltip: 'Clear search',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _table() {
     if (_loading) {
       return Padding(
@@ -408,17 +484,21 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                 children: [
                   _header(),
                   const Divider(height: 1, color: AppColors.border),
-                  if (_trips.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(28),
-                      child: Text('No completed trips found.'),
+                  if (_filteredTrips.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Text(
+                        _searchController.text.isNotEmpty
+                            ? 'No trips found matching "${_searchController.text}"'
+                            : 'No completed trips found.',
+                      ),
                     )
                   else
-                    ..._trips.asMap().entries.map(
+                    ..._filteredTrips.asMap().entries.map(
                       (entry) => Column(
                         children: [
                           _row(entry.value),
-                          if (entry.key < _trips.length - 1)
+                          if (entry.key < _filteredTrips.length - 1)
                             const Divider(height: 1, color: AppColors.border),
                         ],
                       ),
