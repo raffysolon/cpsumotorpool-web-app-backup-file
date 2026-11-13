@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
@@ -21,9 +22,49 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   bool _isLoading = false;
   bool _submitted = false;
 
+  Timer? _cooldownTimer;
+  final _attempts = <String, int>{};
+  final _quotaExpires = <String, DateTime>{};
+  final _cooldownUntil = <String, DateTime>{};
+  String get _email => _emailController.text.trim().toLowerCase();
+  int get _secondsLeft {
+    final until = _cooldownUntil[_email];
+    if (until == null) return 0;
+    return (until.difference(DateTime.now()).inMilliseconds / 1000)
+        .ceil()
+        .clamp(0, 86400);
+  }
+
+  String get _countdown =>
+      '${(_secondsLeft ~/ 60).toString().padLeft(2, '0')}:${(_secondsLeft % 60).toString().padLeft(2, '0')}';
+
+  void _recordQuota(String email, {int? remaining, int retryAfter = 0}) {
+    final now = DateTime.now();
+    if (remaining != null) {
+      _attempts[email] = remaining;
+      _quotaExpires[email] = now.add(const Duration(minutes: 5));
+    }
+    if (retryAfter > 0) {
+      _cooldownUntil[email] = now.add(Duration(seconds: retryAfter));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        final now = DateTime.now();
+        for (final email in _quotaExpires.keys.toList()) {
+          if (!now.isBefore(_quotaExpires[email]!)) {
+            _attempts.remove(email);
+            _quotaExpires.remove(email);
+          }
+        }
+        _cooldownUntil.removeWhere((_, until) => !now.isBefore(until));
+      });
+    });
     _enterController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -38,13 +79,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _enterController.dispose();
     _emailController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (_isLoading || !_formKey.currentState!.validate()) return;
+    if (_isLoading || _secondsLeft > 0 || !_formKey.currentState!.validate()) {
+      return;
+    }
+    final email = _email;
 
     FocusScope.of(context).unfocus();
     setState(() {
@@ -53,8 +98,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     });
 
     try {
-      await AuthService.requestPasswordReset(_emailController.text.trim());
-      if (mounted) setState(() => _submitted = true);
+      final result = await AuthService.requestPasswordReset(email);
+      if (!mounted) return;
+      setState(() {
+        _recordQuota(
+          email,
+          remaining: result.attemptsRemaining,
+          retryAfter: result.retryAfter,
+        );
+        _submitted = _email == email;
+      });
+    } on PasswordResetLimitException catch (error) {
+      if (mounted) {
+        setState(() => _recordQuota(email, retryAfter: error.retryAfter));
+        AppNotification.showMessage(error.message, isError: true);
+      }
     } on LoginException catch (error) {
       if (mounted) {
         AppNotification.showMessage(error.message, isError: true);
@@ -162,6 +220,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: _emailController,
+                                enabled: !_isLoading,
+                                onChanged: (_) =>
+                                    setState(() => _submitted = false),
                                 keyboardType: TextInputType.emailAddress,
                                 textInputAction: TextInputAction.done,
                                 autofillHints: const [AutofillHints.email],
@@ -202,6 +263,28 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                 },
                               ),
                               const SizedBox(height: 20),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: _secondsLeft > 0
+                                      ? const Color(0xFFFFF3E0)
+                                      : const Color(0xFFEAF6EE),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _secondsLeft > 0
+                                      ? 'Please wait $_countdown before requesting another link.'
+                                      : _attempts.containsKey(_email)
+                                      ? '${_attempts[_email]} of 3 attempts remaining. A 5-minute cooldown follows the third attempt.'
+                                      : 'Up to 3 attempts per email, then a 5-minute cooldown.',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                               if (_submitted) ...[
                                 Container(
                                   width: double.infinity,
@@ -210,12 +293,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                     color: const Color(0xFFEAF6EE),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.3,
+                                      ),
                                       width: 1,
                                     ),
                                   ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(6),
@@ -232,10 +318,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Email sent!',
+                                              'Request received',
                                               style: AppTypography.bodyStyle(
                                                 color: AppColors.brandDeep,
                                                 fontSize: 15,
@@ -263,9 +350,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                 width: double.infinity,
                                 height: 50,
                                 child: ElevatedButton(
-                                  onPressed: _isLoading ? null : _submit,
+                                  onPressed: _isLoading || _secondsLeft > 0
+                                      ? null
+                                      : _submit,
                                   child: Text(
-                                    _submitted
+                                    _secondsLeft > 0
+                                        ? 'Try again in $_countdown'
+                                        : _submitted
                                         ? 'Send another link'
                                         : 'Send Reset Link',
                                     style: AppTypography.buttonLabel(

@@ -9,19 +9,47 @@ class LoginException implements Exception {
   final String message;
 }
 
+class PasswordResetResult {
+  const PasswordResetResult({this.attemptsRemaining, this.retryAfter = 0});
+  final int? attemptsRemaining;
+  final int retryAfter;
+
+  factory PasswordResetResult.fromJson(Map<String, dynamic> data) {
+    return PasswordResetResult(
+      attemptsRemaining: (data['attempts_remaining'] as num?)?.toInt(),
+      retryAfter: (data['retry_after'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class PasswordResetLimitException implements Exception {
+  const PasswordResetLimitException(this.message, this.retryAfter);
+  final String message;
+  final int retryAfter;
+}
+
 class AuthService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static const String baseUrl =
+      'https://cpsu-motorpool-backend.onrender.com/api';
   static const _storage = FlutterSecureStorage();
 
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: jsonEncode({'email': email, 'password': password}),
     );
 
     if (response.statusCode == 401) {
-      throw const LoginException('Email or password was rejected by the server.');
+      throw const LoginException(
+        'Email or password was rejected by the server.',
+      );
     }
     if (response.statusCode == 422) {
       throw const LoginException('The email or password format is invalid.');
@@ -77,10 +105,7 @@ class AuthService {
     final name = await getName();
 
     if (role != null) {
-      return {
-        'role': role,
-        'name': name,
-      };
+      return {'role': role, 'name': name};
     }
     return null;
   }
@@ -116,7 +141,7 @@ class AuthService {
     }
   }
 
-  static Future<void> requestPasswordReset(String email) async {
+  static Future<PasswordResetResult> requestPasswordReset(String email) async {
     late final http.Response response;
     try {
       response = await http
@@ -139,13 +164,29 @@ class AuthService {
       );
     }
 
+    Map<String, dynamic> data = {};
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) data = decoded;
+    } catch (_) {
+      // A proxy may return a non-JSON error.
+    }
     if (response.statusCode == 429) {
-      throw const LoginException('Too many attempts. Please try again later.');
+      final seconds =
+          (data['retry_after'] as num?)?.toInt() ??
+          int.tryParse(response.headers['retry-after'] ?? '') ??
+          300;
+      throw PasswordResetLimitException(
+        data['message'] as String? ??
+            'Too many attempts. Please wait before trying again.',
+        seconds > 0 ? seconds : 1,
+      );
     }
     if (response.statusCode != 200) {
       throw const LoginException(
         'Unable to send the request. Please try again later.',
       );
     }
+    return PasswordResetResult.fromJson(data);
   }
 }
