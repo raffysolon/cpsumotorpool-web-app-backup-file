@@ -61,7 +61,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _activityTimer = Timer(_idleTimeout, () async {
       await AuthService.logout();
       // Use navigatorKey to get context even when timer fires
-      _navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
+      _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login',
+        (_) => false,
+      );
     });
   }
 
@@ -89,23 +92,91 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         title: 'CPSU MotorPool',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF22C55E)),
-        useMaterial3: true,
-        textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: _filledButtonStyle(),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F8A3D)),
+          useMaterial3: true,
+          textTheme: AppTypography.textTheme(ThemeData.light().textTheme),
+          scaffoldBackgroundColor: const Color(0xFFF6F8F7),
+          dividerTheme: const DividerThemeData(
+            color: Color(0xFFDEE7E1),
+            thickness: 1,
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: const Color(0xFFF8FAF9),
+            hintStyle: const TextStyle(color: Color(0xFF718078), fontSize: 14),
+            labelStyle: const TextStyle(color: Color(0xFF58675F), fontSize: 14),
+            floatingLabelStyle: const TextStyle(
+              color: Color(0xFF176E30),
+              fontWeight: FontWeight.w600,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFDEE7E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF1F8A3D),
+                width: 1.5,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFB42318)),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFFB42318),
+                width: 1.5,
+              ),
+            ),
+          ),
+          dialogTheme: DialogThemeData(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          bottomSheetTheme: const BottomSheetThemeData(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+          ),
+          progressIndicatorTheme: const ProgressIndicatorThemeData(
+            color: Color(0xFF1F8A3D),
+          ),
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: Color(0xFF1F8A3D),
+            selectionColor: Color(0x331F8A3D),
+            selectionHandleColor: Color(0xFF1F8A3D),
+          ),
+          tooltipTheme: TooltipThemeData(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F2933),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: _filledButtonStyle(),
+          ),
+          filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle()),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: _outlinedButtonStyle(),
+          ),
+          textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
         ),
-        filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle()),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: _outlinedButtonStyle(),
-        ),
-        textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
-      ),
         builder: (context, child) =>
             AppNotification.host(child: child ?? const SizedBox.shrink()),
         // ─── Route Definitions ───
-        initialRoute: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+        initialRoute:
+            WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         routes: {
           '/splash': (context) => const SplashScreen(),
           '/login': (context) => const LoginPage(),
@@ -115,7 +186,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               _RoleGuard(role: 'admin', child: const TripRequest()),
           '/active-trips': (context) =>
               _RoleGuard(role: 'admin', child: const ActiveTrip()),
-          '/map': (context) => _RoleGuard(role: 'admin', child: const MapPage()),
+          '/map': (context) =>
+              _RoleGuard(role: 'admin', child: const MapPage()),
           '/vehicles': (context) =>
               _RoleGuard(role: 'admin', child: const VehiclesDriversPage()),
           '/devices': (context) =>
@@ -145,13 +217,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   static ButtonStyle _filledButtonStyle() {
     return ButtonStyle(
-      backgroundColor: const WidgetStatePropertyAll(Color(0xFF1F8A3D)),
-      foregroundColor: const WidgetStatePropertyAll(Colors.white),
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? const Color(0xFFE3EAE5)
+            : const Color(0xFF1F8A3D),
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? const Color(0xFF718078)
+            : Colors.white,
+      ),
       overlayColor: WidgetStatePropertyAll(
         Colors.white.withValues(alpha: 0.12),
       ),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       elevation: const WidgetStatePropertyAll(0),
       padding: const WidgetStatePropertyAll(
@@ -168,9 +248,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       overlayColor: WidgetStatePropertyAll(
         const Color(0xFF1F8A3D).withValues(alpha: 0.08),
       ),
-      side: const WidgetStatePropertyAll(BorderSide(color: Color(0xFF86EFAC))),
+      side: const WidgetStatePropertyAll(BorderSide(color: Color(0xFFC7D9CC))),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: 16, vertical: 12),

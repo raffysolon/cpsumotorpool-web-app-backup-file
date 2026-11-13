@@ -155,12 +155,12 @@ class AppColors {
   static const Color brandDeep = Color(0xFF0F3D24);
   static const Color mint = Color(0xFFB7E4C7);
   static const Color navy = Color(0xFF1F2933);
-  static const Color muted = Color(0xFF94A3B8);
-  static const Color mutedDark = Color(0xFF6B7280);
-  static const Color background = Color(0xFFF3F8F4);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color glassFill = Color(0xEBFFFFFF);
-  static const Color glassBorder = Color(0xB3FFFFFF);
+  static const Color muted = Color(0xFF718078);
+  static const Color mutedDark = Color(0xFF58675F);
+  static const Color background = Color(0xFFF6F8F7);
+  static const Color border = Color(0xFFDEE7E1);
+  static const Color glassFill = Color(0xFAFFFFFF);
+  static const Color glassBorder = Color(0xFFDEE7E1);
   static const Color iconGreen2 = Color(0xFF4ADE80);
   static const Color iconGreen3 = Color(0xFF15803D);
   static const Color iconGreen4 = Color(0xFF166534);
@@ -188,7 +188,7 @@ class AppTypography {
     Color? color,
     double fontSize = 13,
     FontWeight fontWeight = FontWeight.w600,
-    double letterSpacing = 1.2,
+    double letterSpacing = 0.7,
   }) => GoogleFonts.play(
     fontSize: fontSize,
     fontWeight: fontWeight,
@@ -274,7 +274,7 @@ class GlassCard extends StatelessWidget {
           width: width,
           padding: padding,
           decoration: BoxDecoration(
-            color: AppColors.brandDeep.withValues(alpha: 0.12),
+            color: AppColors.glassFill,
             border: Border.all(color: AppColors.glassBorder),
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -300,10 +300,10 @@ class _ShellAtmosphere extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF3F8F4),
-                Color(0xFFE8F5EC),
+                Color(0xFFF6F8F7),
+                Color(0xFFF0F5F1),
                 Color(0xFFF8FAFC),
-                Color(0xFFEAF6EE),
+                Color(0xFFF4F7F5),
               ],
               stops: [0.0, 0.35, 0.7, 1.0],
             ),
@@ -317,7 +317,7 @@ class _ShellAtmosphere extends StatelessWidget {
             height: 260,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: 0.035),
             ),
           ),
         ),
@@ -329,7 +329,7 @@ class _ShellAtmosphere extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.mint.withValues(alpha: 0.18),
+              color: AppColors.mint.withValues(alpha: 0.08),
             ),
           ),
         ),

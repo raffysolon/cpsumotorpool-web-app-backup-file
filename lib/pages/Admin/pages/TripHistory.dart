@@ -2,6 +2,7 @@
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/data/trip_return_details.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
@@ -30,6 +31,8 @@ class _TripHistoryData {
     required this.purpose,
     required this.departure,
     required this.returnSchedule,
+    required this.returnDeparture,
+    required this.returnArrival,
     required this.passengers,
   });
 
@@ -41,11 +44,14 @@ class _TripHistoryData {
   final String purpose;
   final String departure;
   final String returnSchedule;
+  final String returnDeparture;
+  final String returnArrival;
   final List<Map<String, dynamic>> passengers;
 
   factory _TripHistoryData.fromJson(Map<String, dynamic> json) {
     final driver = _map(json['driver']);
     final vehicle = _map(json['vehicle']);
+    final returning = TripReturnDetails.fromJson(json);
     final passengers = json['passengers'] is List
         ? (json['passengers'] as List)
               .whereType<Map>()
@@ -64,7 +70,15 @@ class _TripHistoryData {
       destination: _text(json['destination']),
       purpose: _text(json['purpose']),
       departure: _text(json['scheduled_departure']),
-      returnSchedule: _dateTime(json['return_scheduled_departure']),
+      returnSchedule: returning.scheduled == null
+          ? 'Not scheduled'
+          : _dateTime(returning.scheduled),
+      returnDeparture: returning.departed == null
+          ? 'Not recorded'
+          : _dateTime(returning.departed),
+      returnArrival: returning.arrived == null
+          ? 'Not recorded'
+          : _dateTime(returning.arrived),
       passengers: passengers,
     );
   }
@@ -170,6 +184,13 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
 
       final trips = rawTrips
           .whereType<Map>()
+          .where(
+            (trip) =>
+                _text(
+                  trip['status'] ?? trip['effective_status'],
+                ).trim().toLowerCase() ==
+                'completed',
+          )
           .map(
             (trip) =>
                 _TripHistoryData.fromJson(Map<String, dynamic>.from(trip)),
@@ -253,6 +274,8 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                 _detail('Purpose', trip.purpose),
                 _detail('Departure', trip.departure),
                 _detail('Return schedule', trip.returnSchedule),
+                _detail('Actual return departure', trip.returnDeparture),
+                _detail('Actual return arrival', trip.returnArrival),
                 _detail(
                   'Passengers',
                   trip.passengers.isEmpty
@@ -419,28 +442,19 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
       borderRadius: 12,
       child: Row(
         children: [
-          const Icon(
-            Icons.search,
-            color: AppColors.mutedDark,
-            size: 20,
-          ),
+          const Icon(Icons.search, color: AppColors.mutedDark, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(
-                hintText: 'Search current page by driver, vehicle, origin, destination, or date...',
+                hintText:
+                    'Search current page by driver, vehicle, origin, destination, or date...',
                 border: InputBorder.none,
                 isDense: true,
-                hintStyle: TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 14,
-                ),
+                hintStyle: TextStyle(color: AppColors.muted, fontSize: 14),
               ),
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.navy,
-              ),
+              style: const TextStyle(fontSize: 14, color: AppColors.navy),
             ),
           ),
           if (_searchController.text.isNotEmpty)
