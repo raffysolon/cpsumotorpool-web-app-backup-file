@@ -23,10 +23,14 @@ class ActiveVehiclesMap extends StatefulWidget {
     super.key,
     this.initialZoom = 12,
     this.interactive = true,
+    this.loadVehicles = GpsService.getTrackedVehicles,
+    this.loadLocation = GpsService.getLatestLocation,
   });
 
   final double initialZoom;
   final bool interactive;
+  final Future<List<TrackedVehicle>> Function() loadVehicles;
+  final Future<GpsLocation?> Function(int) loadLocation;
 
   @override
   State<ActiveVehiclesMap> createState() => _ActiveVehiclesMapState();
@@ -45,6 +49,7 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
   bool _hasCentered = false;
 
   String? _errorMessage;
+  DateTime? _lastSuccessfulRefresh;
 
   int _registeredVehicleCount = 0;
 
@@ -70,19 +75,39 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
     _isFetching = true;
 
     try {
-      final vehicles = await GpsService.getTrackedVehicles();
+      final vehicles = await widget.loadVehicles();
 
       final updatedVehicles = <VehicleTrackingData>[];
+      final failures = <String>[];
 
       for (final vehicle in vehicles) {
         if (!mounted) return;
 
-        final location = await GpsService.getLatestLocation(vehicle.vehicleId);
-
-        if (location != null) {
-          updatedVehicles.add(
-            VehicleTrackingData(vehicle: vehicle, location: location),
+        try {
+          final location = await widget.loadLocation(vehicle.vehicleId);
+          if (location != null) {
+            updatedVehicles.add(
+              VehicleTrackingData(vehicle: vehicle, location: location),
+            );
+          }
+        } on GpsAccessException {
+          rethrow;
+        } catch (error) {
+          failures.add(
+            '${vehicle.plate}: ${error.toString().replaceFirst('Exception: ', '')}',
           );
+          // Retain this vehicle's last known position during transient failures.
+          for (final previous in _trackedVehicles) {
+            if (previous.vehicle.vehicleId == vehicle.vehicleId) {
+              updatedVehicles.add(
+                VehicleTrackingData(
+                  vehicle: vehicle,
+                  location: previous.location,
+                ),
+              );
+              break;
+            }
+          }
         }
       }
 
@@ -92,7 +117,8 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
         _trackedVehicles = updatedVehicles;
         _registeredVehicleCount = vehicles.length;
         _isLoading = false;
-        _errorMessage = null;
+        _errorMessage = failures.isEmpty ? null : failures.join('\n');
+        if (failures.isEmpty) _lastSuccessfulRefresh = DateTime.now();
       });
 
       _centerOnFirstVehicle();
@@ -102,6 +128,12 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
       setState(() {
         _isLoading = false;
         _errorMessage = error.toString().replaceFirst('Exception: ', '');
+        if (error is GpsAccessException) {
+          _trackedVehicles = [];
+          _registeredVehicleCount = 0;
+          _lastSuccessfulRefresh = null;
+          _hasCentered = false;
+        }
       });
     } finally {
       _isFetching = false;
@@ -137,13 +169,14 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
   // === Format GPS recording time ===
 
   String _formatRecordedAt(DateTime recordedAt) {
-    final local = recordedAt.toLocal();
+    final local = recordedAt.toUtc().add(const Duration(hours: 8));
 
     String twoDigits(int value) => value.toString().padLeft(2, '0');
 
-    return '${twoDigits(local.hour)}:'
+    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+        '${twoDigits(local.hour)}:'
         '${twoDigits(local.minute)}:'
-        '${twoDigits(local.second)}';
+        '${twoDigits(local.second)} PHT';
   }
 
   @override
@@ -158,6 +191,12 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
     final recentCount = _trackedVehicles
         .where((vehicle) => vehicle.location.isRecent)
         .length;
+    DateTime? latestGps;
+    for (final item in _trackedVehicles) {
+      if (latestGps == null || item.location.recordedAt.isAfter(latestGps)) {
+        latestGps = item.location.recordedAt;
+      }
+    }
 
     return Stack(
       children: [
@@ -304,18 +343,40 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
                   ),
                   const SizedBox(width: 8),
                   Flexible(
-                    child: Text(
-                      _isLoading
-                          ? 'Loading GPS...'
-                          : _errorMessage != null
-                          ? 'GPS refresh failed'
-                          : '$recentCount recent GPS / '
-                                '$_registeredVehicleCount registered',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navy,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isLoading
+                              ? 'Loading GPS...'
+                              : _errorMessage != null
+                              ? 'GPS refresh failed'
+                              : '$recentCount recent GPS / '
+                                    '$_registeredVehicleCount registered',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                        if (latestGps != null)
+                          Text(
+                            'Latest GPS: ${_formatRecordedAt(latestGps)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.mutedDark,
+                            ),
+                          ),
+                        if (_lastSuccessfulRefresh != null)
+                          Text(
+                            'Last successful refresh: ${_formatRecordedAt(_lastSuccessfulRefresh!)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.mutedDark,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -508,20 +569,20 @@ class ActiveVehiclesMapCard extends StatelessWidget {
               ),
             )
           else
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                height: (MediaQuery.sizeOf(context).height * 0.48).clamp(
-                  280.0,
-                  520.0,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: (MediaQuery.sizeOf(context).height * 0.48).clamp(
+                    280.0,
+                    520.0,
+                  ),
+                  width: double.infinity,
+                  child: const ActiveVehiclesMap(initialZoom: 11.5),
                 ),
-                width: double.infinity,
-                child: const ActiveVehiclesMap(initialZoom: 11.5),
               ),
             ),
-          ),
           Align(
             alignment: Alignment.center,
             child: TextButton(

@@ -1,10 +1,18 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
+
+/// Authentication changes must also clear locations already displayed by a map.
+class GpsAccessException implements Exception {
+  const GpsAccessException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 /// Represents an actual GPS location received from the backend.
 class GpsLocation {
@@ -31,14 +39,6 @@ class GpsLocation {
     final now = DateTime.now().toUtc();
     final recorded = recordedAt.toUtc();
     final age = now.difference(recorded);
-
-    debugPrint(
-      'GPS DEBUG: '
-      'Record ID: $id | '
-      'Now: $now | '
-      'Recorded: $recorded | '
-      'Age: ${age.inMilliseconds} ms',
-    );
 
     return !age.isNegative && age <= const Duration(seconds: 30);
   }
@@ -126,6 +126,18 @@ class GpsService {
 
   // Track the current authenticated session.
   static String? _sessionToken;
+  static int _sessionGeneration = 0;
+
+  static Future<void> _checkSession(int generation) async {
+    final token = await AuthService.getToken();
+    if (generation != _sessionGeneration) {
+      throw const GpsAccessException('Session changed. Refresh GPS again.');
+    }
+    if (token == null || token.isEmpty || token != _sessionToken) {
+      clearCache();
+      throw const GpsAccessException('Session changed. Please log in again.');
+    }
+  }
 
   // === Authentication ===
 
@@ -135,7 +147,7 @@ class GpsService {
     if (token == null || token.isEmpty) {
       clearCache();
 
-      throw Exception(
+      throw const GpsAccessException(
         'Authentication token not found. '
         'Please log in again.',
       );
@@ -202,7 +214,7 @@ class GpsService {
       return _registryRequest!;
     }
 
-    final request = _fetchTrackedVehicles();
+    final request = _fetchTrackedVehicles(_sessionGeneration);
 
     _registryRequest = request;
 
@@ -215,7 +227,9 @@ class GpsService {
     }
   }
 
-  static Future<List<TrackedVehicle>> _fetchTrackedVehicles() async {
+  static Future<List<TrackedVehicle>> _fetchTrackedVehicles(
+    int generation,
+  ) async {
     final vehicles = <int, TrackedVehicle>{};
 
     int page = 1;
@@ -226,6 +240,8 @@ class GpsService {
         final response = await DeviceService.getDevices(
           page: page,
         ).timeout(const Duration(seconds: 30));
+
+        await _checkSession(generation);
 
         if (response is! Map<String, dynamic>) {
           throw Exception('Invalid device registry response.');
@@ -268,6 +284,14 @@ class GpsService {
 
       return _cachedVehicles!;
     } catch (error) {
+      await _checkSession(generation);
+      if (error.toString().contains('session has expired') ||
+          error.toString().contains('permission')) {
+        clearCache();
+        throw const GpsAccessException(
+          'GPS access denied. Please log in again.',
+        );
+      }
       if (_isRateLimitError(error)) {
         _startCooldown();
 
@@ -305,7 +329,11 @@ class GpsService {
       return existingRequest;
     }
 
-    final request = _fetchLatestLocation(vehicleId, headers);
+    final request = _fetchLatestLocation(
+      vehicleId,
+      headers,
+      _sessionGeneration,
+    );
 
     _locationRequests[vehicleId] = request;
 
@@ -321,12 +349,15 @@ class GpsService {
   static Future<GpsLocation?> _fetchLatestLocation(
     int vehicleId,
     Map<String, String> headers,
+    int generation,
   ) async {
     final uri = Uri.parse('$baseUrl/gps/vehicles/$vehicleId/latest');
 
     final response = await http
         .get(uri, headers: headers)
         .timeout(const Duration(seconds: 30));
+
+    await _checkSession(generation);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -336,6 +367,9 @@ class GpsService {
       }
 
       final location = GpsLocation.fromJson(data);
+      if (location.vehicleId != vehicleId) {
+        throw const FormatException('GPS response belongs to another vehicle.');
+      }
 
       // Save the latest successful GPS response.
       _cachedLocations[vehicleId] = location;
@@ -367,14 +401,17 @@ class GpsService {
     if (response.statusCode == 401) {
       clearCache();
 
-      throw Exception(
+      throw const GpsAccessException(
         'Your session has expired. '
         'Please log in again.',
       );
     }
 
     if (response.statusCode == 403) {
-      throw Exception('You do not have permission to view GPS locations.');
+      clearCache();
+      throw const GpsAccessException(
+        'You do not have permission to view GPS locations.',
+      );
     }
 
     if (response.statusCode == 429) {
@@ -397,6 +434,7 @@ class GpsService {
   // === Clear cached data ===
 
   static void clearCache() {
+    _sessionGeneration++;
     _cachedVehicles = null;
 
     _lastRegistryRefresh = null;
