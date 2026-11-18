@@ -2,6 +2,7 @@
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -83,14 +84,16 @@ class _SettingsState extends State<Settings> {
     return AppShell(
       currentRoute: '/settings',
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Center(
+        padding: AdminSpacing.page(context),
+        child: Align(
+          alignment: Alignment.topLeft,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const PageHeader(title: 'Settings'),
+                const SizedBox(height: 16),
                 _section('Admin Account', [
                   _readOnly('Name', _name),
                   _readOnly('Email', _email),
@@ -117,7 +120,7 @@ class _SettingsState extends State<Settings> {
   }
 
   Widget _section(String title, List<Widget> children) => GlassCard(
-    padding: const EdgeInsets.all(24),
+    padding: const EdgeInsets.all(20),
     borderRadius: 18,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,7 +146,7 @@ class _SettingsState extends State<Settings> {
         borderSide: const BorderSide(color: AppColors.border),
       ),
     ),
-    child: Text(value),
+    child: SelectableText(value),
   );
 
   Widget _passwordField(String label, TextEditingController controller) =>

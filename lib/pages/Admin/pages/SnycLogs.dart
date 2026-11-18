@@ -1,6 +1,7 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -38,12 +39,36 @@ class _SyncLogData {
 
 // ─── Mock Data (replace with API/database later) ───
 const _mockLogs = [
-  _SyncLogData(deviceId: 'GPS-001', timestamp: '2026-08-18  14:32:05', status: 'Synced'),
-  _SyncLogData(deviceId: 'GPS-002', timestamp: '2026-08-18  14:31:58', status: 'Synced'),
-  _SyncLogData(deviceId: 'GPS-003', timestamp: '2026-08-18  14:28:00', status: 'Pending'),
-  _SyncLogData(deviceId: 'GPS-004', timestamp: '2026-08-18  14:30:45', status: 'Synced'),
-  _SyncLogData(deviceId: 'GPS-005', timestamp: '2026-08-18  14:15:10', status: 'Pending'),
-  _SyncLogData(deviceId: 'GPS-006', timestamp: '2026-08-18  14:32:01', status: 'Synced'),
+  _SyncLogData(
+    deviceId: 'GPS-001',
+    timestamp: '2026-08-18  14:32:05',
+    status: 'Synced',
+  ),
+  _SyncLogData(
+    deviceId: 'GPS-002',
+    timestamp: '2026-08-18  14:31:58',
+    status: 'Synced',
+  ),
+  _SyncLogData(
+    deviceId: 'GPS-003',
+    timestamp: '2026-08-18  14:28:00',
+    status: 'Pending',
+  ),
+  _SyncLogData(
+    deviceId: 'GPS-004',
+    timestamp: '2026-08-18  14:30:45',
+    status: 'Synced',
+  ),
+  _SyncLogData(
+    deviceId: 'GPS-005',
+    timestamp: '2026-08-18  14:15:10',
+    status: 'Pending',
+  ),
+  _SyncLogData(
+    deviceId: 'GPS-006',
+    timestamp: '2026-08-18  14:32:01',
+    status: 'Synced',
+  ),
 ];
 
 // ─── Main Content Layout ───
@@ -66,13 +91,13 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
     return AdminPageScaffold(
       title: 'Sync Logs',
       child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(),
-                const SizedBox(height: 16),
-                _buildTable(),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(),
+            const SizedBox(height: 16),
+            _buildTable(),
+          ],
         ),
       ),
     );
@@ -80,29 +105,27 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
 
   // ─── Section Header ("GPS Sync Logs" + Refresh button) ───
   Widget _buildSectionHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text('GPS Sync Logs',
-            style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppColors.navy)),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Refresh'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.navy,
-            side: const BorderSide(color: AppColors.border),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            textStyle:
-                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
+    return AdminToolbar(
+      title: const Text(
+        'GPS Sync Logs',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: AppColors.navy,
         ),
-      ],
+      ),
+      actions: OutlinedButton.icon(
+        onPressed: () {},
+        icon: const Icon(Icons.refresh, size: 16),
+        label: const Text('Refresh'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.navy,
+          side: const BorderSide(color: AppColors.border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 
@@ -118,33 +141,52 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
     return GlassCard(
       padding: EdgeInsets.zero,
       borderRadius: 18,
-      child: Column(
-        children: [
-          // ─── Table Header Row ───
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            child: Row(
-              children: const [
-                Expanded(flex: 4, child: Text('DEVICE ID', style: headerStyle)),
-                Expanded(flex: 6, child: Text('TIMESTAMP', style: headerStyle)),
-                Expanded(flex: 3, child: Text('STATUS', style: headerStyle)),
+      child: LayoutBuilder(
+        builder: (context, constraints) => AdminTableScroll(
+          child: SizedBox(
+            width: constraints.maxWidth.clamp(560.0, double.infinity),
+            child: Column(
+              children: [
+                // ─── Table Header Row ───
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: const [
+                      Expanded(
+                        flex: 4,
+                        child: Text('DEVICE ID', style: headerStyle),
+                      ),
+                      Expanded(
+                        flex: 6,
+                        child: Text('TIMESTAMP', style: headerStyle),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text('STATUS', style: headerStyle),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.border),
+                // ─── Table Data Rows ───
+                ..._mockLogs.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final log = entry.value;
+                  return Column(
+                    children: [
+                      _buildRow(log),
+                      if (i < _mockLogs.length - 1)
+                        const Divider(height: 1, color: AppColors.border),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.border),
-          // ─── Table Data Rows ───
-          ..._mockLogs.asMap().entries.map((entry) {
-            final i = entry.key;
-            final log = entry.value;
-            return Column(
-              children: [
-                _buildRow(log),
-                if (i < _mockLogs.length - 1)
-                  const Divider(height: 1, color: AppColors.border),
-              ],
-            );
-          }),
-        ],
+        ),
       ),
     );
   }
@@ -152,10 +194,12 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
   // ─── Table Data Row ───
   Widget _buildRow(_SyncLogData log) {
     final isSynced = log.status == 'Synced';
-    final statusColor =
-        isSynced ? const Color(0xFF16A34A) : const Color(0xFFD97706);
-    final statusBg =
-        isSynced ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7);
+    final statusColor = isSynced
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFD97706);
+    final statusBg = isSynced
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFFEF3C7);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -164,17 +208,22 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
           // Device ID
           Expanded(
             flex: 4,
-            child: Text(log.deviceId,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.navy)),
+            child: Text(
+              log.deviceId,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.navy,
+              ),
+            ),
           ),
           // Timestamp
           Expanded(
             flex: 6,
-            child: Text(log.timestamp,
-                style: const TextStyle(fontSize: 13, color: AppColors.navy)),
+            child: Text(
+              log.timestamp,
+              style: const TextStyle(fontSize: 13, color: AppColors.navy),
+            ),
           ),
           // Status badge
           Expanded(
@@ -182,16 +231,22 @@ class _SyncLogsContentState extends State<_SyncLogsContent> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                    color: statusBg,
-                    borderRadius: BorderRadius.circular(20)),
-                child: Text(log.status,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor)),
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  log.status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
               ),
             ),
           ),

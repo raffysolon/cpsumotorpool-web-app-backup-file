@@ -4,6 +4,7 @@ import 'dart:convert';
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/coordinator_assignment_service.dart';
@@ -248,31 +249,26 @@ class _CoordinatorAssignmentsContentState
 
   // ─── Header with Add Button ───
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Active Assignments (${_displayedAssignments.length})',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.navy,
-          ),
+    return AdminToolbar(
+      title: Text(
+        'Active Assignments (${_displayedAssignments.length})',
+        style: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: AppColors.navy,
         ),
-        ElevatedButton.icon(
-          onPressed: () => _showAssignmentDialog(context),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Add Assignment'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+      ),
+      actions: ElevatedButton.icon(
+        onPressed: () => _showAssignmentDialog(context),
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('Add Assignment'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-      ],
+      ),
     );
   }
 
@@ -297,8 +293,7 @@ class _CoordinatorAssignmentsContentState
           final tableWidth = constraints.maxWidth < 960
               ? 960.0
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: tableWidth,
               child: Column(
@@ -487,6 +482,7 @@ class _CoordinatorAssignmentsContentState
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Delete Assignment'),
         content: Text(
           'Are you sure you want to remove ${assignment.campus}\'s assignment?',
@@ -597,10 +593,11 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.assignment != null;
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 500,
-        padding: const EdgeInsets.all(28),
+        padding: AdminSpacing.page(context),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),

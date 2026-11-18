@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cpsumotorpooladmin/pages/Admin/pages/AdminCreateTripTicket.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -254,7 +253,7 @@ class GlassCard extends StatelessWidget {
     required this.child,
     this.padding,
     this.width,
-    this.borderRadius = 20,
+    this.borderRadius = 16,
     this.blurSigma = 18,
   });
 
@@ -293,6 +292,7 @@ class _ShellAtmosphere extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      fit: StackFit.expand,
       children: [
         Container(
           decoration: const BoxDecoration(
@@ -357,63 +357,87 @@ class AppShell extends StatelessWidget {
   final String currentRoute;
   final Widget child;
 
+  static final ValueNotifier<bool?> _collapsed = ValueNotifier<bool?>(null);
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 900;
-        final rail = !narrow && constraints.maxWidth < 1180;
+    return ValueListenableBuilder<bool?>(
+      valueListenable: _collapsed,
+      builder: (context, collapsed, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 900;
+          final rail = collapsed ?? (constraints.maxWidth < 1180);
 
-        if (narrow) {
+          if (narrow) {
+            return InteractionLoadingOverlay.coverApp(
+              Scaffold(
+                backgroundColor: AppColors.background,
+                appBar: AppBar(
+                  backgroundColor: AppColors.glassFill,
+                  foregroundColor: AppColors.navy,
+                  elevation: 0,
+                  surfaceTintColor: Colors.transparent,
+                  title: Text(
+                    'MotorPool',
+                    style: AppTypography.displayTitle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                drawer: Drawer(
+                  backgroundColor: Colors.transparent,
+                  child: Builder(
+                    builder: (context) => _Sidebar(
+                      currentRoute: currentRoute,
+                      compact: false,
+                      toggleTooltip: 'Close menu',
+                      onToggle: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
+                body: _ShellAtmosphere(child: child),
+              ),
+            );
+          }
+
           return InteractionLoadingOverlay.coverApp(
             Scaffold(
               backgroundColor: AppColors.background,
-              appBar: AppBar(
-                backgroundColor: AppColors.glassFill,
-                foregroundColor: AppColors.navy,
-                elevation: 0,
-                surfaceTintColor: Colors.transparent,
-                title: Text(
-                  'MotorPool',
-                  style: AppTypography.displayTitle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
+              body: _ShellAtmosphere(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Sidebar(
+                      currentRoute: currentRoute,
+                      compact: rail,
+                      onToggle: () => _collapsed.value = !rail,
+                    ),
+                    Expanded(child: child),
+                  ],
                 ),
               ),
-              drawer: Drawer(
-                backgroundColor: Colors.transparent,
-                child: _Sidebar(currentRoute: currentRoute, compact: false),
-              ),
-              body: _ShellAtmosphere(child: child),
             ),
           );
-        }
-
-        return InteractionLoadingOverlay.coverApp(
-          Scaffold(
-            backgroundColor: AppColors.background,
-            body: _ShellAtmosphere(
-              child: Row(
-                children: [
-                  _Sidebar(currentRoute: currentRoute, compact: rail),
-                  Expanded(child: child),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
 
 // ─── Sidebar Navigation ───
 class _Sidebar extends StatefulWidget {
-  const _Sidebar({required this.currentRoute, this.compact = false});
+  const _Sidebar({
+    required this.currentRoute,
+    this.compact = false,
+    required this.onToggle,
+    this.toggleTooltip,
+  });
 
   final String currentRoute;
   final bool compact;
+  final VoidCallback onToggle;
+  final String? toggleTooltip;
 
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -560,16 +584,6 @@ class _SidebarState extends State<_Sidebar> {
     Navigator.pushReplacementNamed(context, route);
   }
 
-  void _openRequestLetters(BuildContext context) {
-    if (Scaffold.maybeOf(context)?.isDrawerOpen ?? false) {
-      Navigator.pop(context);
-    }
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AdminCreateTripTicketPage()),
-    );
-  }
-
   Future<void> _confirmLogout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
@@ -640,27 +654,13 @@ class _SidebarState extends State<_Sidebar> {
         onTap: () => _go(context, '/'),
       ),
       _NavItem(
-        icon: Icons.assignment_outlined,
-        label: 'Trip Request',
-        badge: _tripRequestCount,
-        compact: compact,
-        selected: currentRoute == '/trip-request',
-        onTap: () => _go(context, '/trip-request'),
-      ),
-      _NavItem(
-        icon: Icons.mail_outline,
-        label: 'Create Trip Ticket',
-        compact: compact,
-        selected: currentRoute == '/approval-letter',
-        onTap: () => _openRequestLetters(context),
-      ),
-      _NavItem(
         icon: Icons.explore_outlined,
         label: 'Trips',
-        badge: _activeTripsCount,
+        badge:
+            '${(int.tryParse(_tripRequestCount) ?? 0) + (int.tryParse(_activeTripsCount) ?? 0)}',
         compact: compact,
         selected: currentRoute == '/active-trips',
-        onTap: () => _go(context, '/active-trips'),
+        onTap: () => _go(context, '/approval-letter'),
       ),
       _NavItem(
         icon: Icons.map_outlined,
@@ -716,139 +716,201 @@ class _SidebarState extends State<_Sidebar> {
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          width: compact ? 84 : 248,
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 320),
+          curve: Curves.easeInOutCubic,
+          width: compact ? 88 : 232,
           decoration: BoxDecoration(
             color: AppColors.glassFill,
             border: Border(right: BorderSide(color: AppColors.glassBorder)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              // ─── Logo / Brand Header ───
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 20),
-                child: Row(
+          child: ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minWidth: 0,
+              maxWidth: 232,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  alignment: Alignment.topLeft,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.all(2),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          'assets/images/cpsu logo.png',
-                          fit: BoxFit.contain,
+                    for (final previous in previousChildren)
+                      IgnorePointer(child: previous),
+                    ?currentChild,
+                  ],
+                ),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(-0.04, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: SizedBox(
+                  key: ValueKey(compact),
+                  width: compact ? 88 : 232,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                        child: Align(
+                          alignment: compact
+                              ? Alignment.center
+                              : Alignment.centerRight,
+                          child: IconButton(
+                            tooltip:
+                                widget.toggleTooltip ??
+                                (compact
+                                    ? 'Expand sidebar'
+                                    : 'Collapse sidebar'),
+                            onPressed: widget.onToggle,
+                            icon: const Icon(
+                              Icons.menu,
+                              color: AppColors.mutedDark,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // ─── Logo / Brand Header ───
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 12 : 20,
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              'MotorPool',
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.displayTitle(
-                                fontSize: 18,
-                                color: AppColors.navy,
-                                height: 1.1,
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.asset(
+                                  'assets/images/cpsu logo.png',
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                             ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Fleet Management',
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.labelCaps(
-                                fontSize: 11,
+                            if (!compact) ...[
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'MotorPool',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.displayTitle(
+                                        fontSize: 18,
+                                        color: AppColors.navy,
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Fleet Management',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.labelCaps(
+                                        fontSize: 11,
+                                        color: AppColors.mutedDark,
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // ─── Nav Item List ───
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          children: items,
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppColors.border),
+                      // ─── Account Footer ───
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          compact ? 12 : 20,
+                          12,
+                          compact ? 12 : 20,
+                          16,
+                        ),
+                        child: Row(
+                          children: [
+                            if (!compact)
+                              const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFDCFCE7),
+                                child: Icon(
+                                  Icons.person,
+                                  color: AppColors.primaryDark,
+                                  size: 20,
+                                ),
+                              ),
+                            if (!compact) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _name ?? 'Loading...',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.bodyStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: AppColors.navy,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Motorpool Admin',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.labelCaps(
+                                        fontSize: 11,
+                                        color: AppColors.mutedDark,
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            IconButton(
+                              tooltip: 'Log out',
+                              onPressed: () => _confirmLogout(context),
+                              icon: const Icon(
+                                Icons.logout,
                                 color: AppColors.mutedDark,
-                                letterSpacing: 0,
+                                size: 19,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              // ─── Nav Item List ───
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  children: items,
-                ),
-              ),
-              const Divider(height: 1, color: AppColors.border),
-              // ─── Account Footer ───
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 12 : 20,
-                  12,
-                  compact ? 12 : 20,
-                  16,
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Color(0xFFDCFCE7),
-                      child: Icon(
-                        Icons.person,
-                        color: AppColors.primaryDark,
-                        size: 20,
-                      ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _name ?? 'Loading...',
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.bodyStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: AppColors.navy,
-                              ),
-                            ),
-                            Text(
-                              'Motorpool Admin',
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.labelCaps(
-                                fontSize: 11,
-                                color: AppColors.mutedDark,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    IconButton(
-                      tooltip: 'Log out',
-                      onPressed: () => _confirmLogout(context),
-                      icon: const Icon(
-                        Icons.logout,
-                        color: AppColors.mutedDark,
-                        size: 19,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1087,14 +1149,13 @@ class PageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 520;
         final titleBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
               style: AppTypography.displayTitle(
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: FontWeight.w800,
                 color: AppColors.navy,
               ),
@@ -1131,18 +1192,14 @@ class PageHeader extends StatelessWidget {
           ],
         );
 
-        return narrow
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [titleBlock, const SizedBox(height: 14), actions],
-              )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: titleBlock),
-                  actions,
-                ],
-              );
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: titleBlock),
+            const SizedBox(width: 12),
+            actions,
+          ],
+        );
       },
     );
   }
@@ -1164,12 +1221,12 @@ class AdminPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final pad = constraints.maxWidth < 700 ? 16.0 : 28.0;
+        final pad = constraints.maxWidth < 700 ? 12.0 : 20.0;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(pad, 20, pad, 0),
+              padding: EdgeInsets.fromLTRB(pad, 16, pad, 0),
               child: PageHeader(
                 title: title,
                 subtitle: subtitle ?? 'CPSU Motor Pool — Fleet Management',
@@ -1177,7 +1234,7 @@ class AdminPageScaffold extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(pad, 16, pad, 20),
+                padding: EdgeInsets.fromLTRB(pad, 12, pad, 16),
                 child: child,
               ),
             ),

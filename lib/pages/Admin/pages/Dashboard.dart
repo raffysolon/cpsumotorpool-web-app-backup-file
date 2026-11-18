@@ -45,26 +45,33 @@ class _DashboardState extends State<Dashboard> {
       final rawTrips = tripResponse is Map && tripResponse['data'] is List
           ? tripResponse['data'] as List
           : tripResponse is List
-              ? tripResponse
-              : const [];
+          ? tripResponse
+          : const [];
 
-      final rawVehicles = vehicleResponse is Map && vehicleResponse['data'] is List
+      final rawVehicles =
+          vehicleResponse is Map && vehicleResponse['data'] is List
           ? vehicleResponse['data'] as List
           : vehicleResponse is List
-              ? vehicleResponse
-              : const [];
+          ? vehicleResponse
+          : const [];
 
       final rawDrivers = driverResponse is Map && driverResponse['data'] is List
           ? driverResponse['data'] as List
           : driverResponse is List
-              ? driverResponse
-              : const [];
+          ? driverResponse
+          : const [];
 
-      final activeTripCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
+      final activeTripCount = rawTrips.whereType<Map>().fold<int>(0, (
+        total,
+        trip,
+      ) {
         final status = (trip['status'] ?? '').toString().trim().toLowerCase();
         return total + ((status == 'approved' || status == 'active') ? 1 : 0);
       });
-      final pendingTripCount = rawTrips.whereType<Map>().fold<int>(0, (total, trip) {
+      final pendingTripCount = rawTrips.whereType<Map>().fold<int>(0, (
+        total,
+        trip,
+      ) {
         final status = (trip['status'] ?? '').toString().trim().toLowerCase();
         return total + (status == 'pending' ? 1 : 0);
       });
@@ -100,7 +107,7 @@ class _DashboardState extends State<Dashboard> {
       currentRoute: '/',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final pad = constraints.maxWidth < 700 ? 16.0 : 32.0;
+          final pad = constraints.maxWidth < 700 ? 12.0 : 20.0;
           final wideStats = constraints.maxWidth >= 900;
           final twoCol = constraints.maxWidth >= 560;
 
@@ -131,33 +138,51 @@ class _DashboardState extends State<Dashboard> {
             ),
           ];
 
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(pad, 24, pad, 24),
-            child: Column(
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(pad, 16, pad, 0),
+                sliver: SliverToBoxAdapter(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ValueListenableBuilder<int>(
-                  valueListenable: AdminNotificationsController.instance.unreadCount,
+                  valueListenable:
+                      AdminNotificationsController.instance.unreadCount,
                   builder: (context, count, _) {
                     return PageHeader(
                       title: 'Dashboard',
                       notificationCount: count,
-                      onNotificationsTap: () =>
-                          AdminNotificationsController.instance.showNotificationsDialog(context),
+                      onNotificationsTap: () => AdminNotificationsController
+                          .instance
+                          .showNotificationsDialog(context),
                     );
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 _StatCardsRow(
                   wide: wideStats,
                   twoCol: twoCol,
-                  maxWidth: constraints.maxWidth,
+                  maxWidth: constraints.maxWidth - pad * 2,
                   cards: cards,
                 ),
                 const SizedBox(height: 20),
-                const ActiveVehiclesMapCard(),
               ],
-            ),
+            )),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(pad, 0, pad, 12),
+                sliver: SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1100),
+                      child: const ActiveVehiclesMapCard(fillHeight: true),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -220,7 +245,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+      padding: const EdgeInsets.all(16),
       borderRadius: 16,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,7 +268,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 36,
+                    fontSize: 30,
                     fontWeight: FontWeight.w800,
                     color: AppColors.navy,
                     height: 1,

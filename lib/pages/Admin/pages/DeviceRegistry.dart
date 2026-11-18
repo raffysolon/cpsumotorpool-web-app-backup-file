@@ -2,10 +2,12 @@
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
 import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
-import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart' as skeleton;
+import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart'
+    as skeleton;
 
 // === Device Registry Page - Manage GPS Tracker Devices ===
 // Route: /devices
@@ -37,11 +39,10 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
     if (mounted) setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        DeviceService.getDevices(
-          page: _currentPage,
-          perPage: _perPage,
-        ),
-        VehicleService.getVehicles(perPage: 1000), // Get all vehicles for dropdown
+        DeviceService.getDevices(page: _currentPage, perPage: _perPage),
+        VehicleService.getVehicles(
+          perPage: 1000,
+        ), // Get all vehicles for dropdown
       ]);
 
       if (!mounted) return;
@@ -114,6 +115,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: const Text('Register Device'),
           content: SizedBox(
             width: 400,
@@ -140,6 +142,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   value: selectedVehicleId,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
@@ -224,6 +227,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text('Edit Device: ${device.deviceId}'),
           content: SizedBox(
             width: 400,
@@ -237,6 +241,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   value: selectedVehicleId,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
@@ -310,6 +315,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Confirm Delete'),
         content: Text(
           'Are you sure you want to unregister device "${device.deviceId}"?',
@@ -332,18 +338,12 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
       try {
         await DeviceService.deleteDevice(device.deviceId);
         if (mounted) {
-          AppNotification.showMessage(
-            'Device unregistered',
-            isSuccess: true,
-          );
+          AppNotification.showMessage('Device unregistered', isSuccess: true);
           _loadData();
         }
       } catch (e) {
         if (mounted) {
-          AppNotification.showMessage(
-            'Failed to delete: $e',
-            isError: true,
-          );
+          AppNotification.showMessage('Failed to delete: $e', isError: true);
         }
       }
     }
@@ -356,38 +356,18 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Device Registry',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Manage GPS Tracker Devices',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: _showRegisterDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Register Device'),
-                ),
-              ],
+            padding: AdminSpacing.page(context),
+            child: AdminToolbar(
+              title: const PageHeader(
+                title: 'Device Registry',
+                subtitle: 'Manage GPS Tracker Devices',
+              ),
+              actions: ElevatedButton.icon(
+                onPressed: _showRegisterDialog,
+                icon: const Icon(Icons.add),
+                label: const Text('Register Device'),
+              ),
             ),
           ),
 
@@ -396,8 +376,8 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             child: _isLoading
                 ? _buildSkeletonLoader()
                 : _devices.isEmpty
-                    ? _buildEmptyState()
-                    : _buildDeviceTable(),
+                ? _buildEmptyState()
+                : _buildDeviceTable(),
           ),
 
           // Pagination
@@ -409,7 +389,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
 
   Widget _buildSkeletonLoader() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: AdminSpacing.page(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(
@@ -450,43 +430,154 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
   Widget _buildDeviceTable() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final gutter = AdminSpacing.gutter(context);
+        if (constraints.maxWidth < 760) {
+          return ListView.separated(
+            padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 4),
+            itemCount: _devices.length,
+            separatorBuilder: (_, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _buildDeviceCard(_devices[index]),
+          );
+        }
+        final width = (constraints.maxWidth - gutter * 2).clamp(
+          1060.0,
+          double.infinity,
+        );
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
-            ),
-            child: Card(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+          padding: EdgeInsets.symmetric(horizontal: gutter),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: AdminTableScroll(
+              child: SizedBox(
+                width: width,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Device ID',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Vehicle',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Plate Number',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Registered At',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Last Seen',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Status',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: Text(
+                              'Actions',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Row(
-                      children: [
-                        Expanded(flex: 2, child: Text('Device ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Expanded(flex: 2, child: Text('Vehicle', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Expanded(flex: 2, child: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Expanded(flex: 2, child: Text('Registered At', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Expanded(flex: 2, child: Text('Last Seen', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Expanded(flex: 1, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                        SizedBox(width: 100, child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                  ),
-                  // Table Rows
-                  ..._devices.map((device) => _buildDeviceRow(device)),
-                ],
+                    ..._devices.map(_buildDeviceRow),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDeviceCard(_DeviceData device) {
+    final color = device.isOnline ? Colors.green : Colors.grey;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    device.deviceId,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.circle, size: 9, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  device.isOnline ? 'Online' : 'Offline',
+                  style: TextStyle(color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Vehicle: ${device.vehicleName ?? "-"}'),
+            Text('Plate: ${device.vehiclePlate ?? "-"}'),
+            const SizedBox(height: 8),
+            Text('Registered: ${device.registeredAt ?? "-"}'),
+            Text('Last seen: ${device.lastSeen ?? "Never"}'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _showEditDialog(device),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('Edit'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _deleteDevice(device),
+                  icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                  label: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -586,8 +677,11 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
         color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
         children: [
           Text(
             'Showing ${((_currentPage - 1) * _perPage) + 1} to '
@@ -596,6 +690,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             style: const TextStyle(fontSize: 14),
           ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.chevron_left),
@@ -662,11 +757,7 @@ class _VehicleData {
   final String name;
   final String plateNo;
 
-  _VehicleData({
-    required this.id,
-    required this.name,
-    required this.plateNo,
-  });
+  _VehicleData({required this.id, required this.name, required this.plateNo});
 
   factory _VehicleData.fromJson(Map<String, dynamic> json) {
     return _VehicleData(

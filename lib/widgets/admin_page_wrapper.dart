@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // ADMIN PAGE WRAPPER - Persistent sidebar with dynamic content
 // Prevents sidebar rebuild and position shift during navigation
 // ═══════════════════════════════════════════════════════════════

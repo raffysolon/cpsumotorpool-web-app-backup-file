@@ -2,6 +2,7 @@
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/driver_service.dart';
 import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
@@ -196,30 +197,11 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   }
 
   Widget _buildTopBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: const Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Vehicles & Drivers',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'CPSU Motor Pool — Fleet Management',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-        ],
+    return Padding(
+      padding: AdminSpacing.page(context),
+      child: const PageHeader(
+        title: 'Vehicles & Drivers',
+        subtitle: 'CPSU Motor Pool — Fleet Management',
       ),
     );
   }
@@ -227,43 +209,38 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
   Widget _buildTabs() {
     final isDriversTab = _tabController.index == 1;
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: EdgeInsets.symmetric(horizontal: AdminSpacing.gutter(context)),
       borderRadius: 0,
-      child: Row(
-        children: [
-          Expanded(
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelColor: AppColors.primaryDark,
-              unselectedLabelColor: AppColors.mutedDark,
-              indicatorColor: AppColors.primary,
-              indicatorWeight: 3,
-              tabs: const [
-                Tab(text: 'Vehicles'),
-                Tab(text: 'Drivers'),
-              ],
+      child: AdminToolbar(
+        title: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelColor: AppColors.primaryDark,
+          unselectedLabelColor: AppColors.mutedDark,
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(text: 'Vehicles'),
+            Tab(text: 'Drivers'),
+          ],
+        ),
+        actions: ElevatedButton.icon(
+          onPressed: isDriversTab
+              ? _showAddDriverDialog
+              : _showAddVehicleDialog,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text(isDriversTab ? 'Add Driver' : 'Add Vehicle'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-          const SizedBox(width: 20),
-          ElevatedButton.icon(
-            onPressed: isDriversTab
-                ? _showAddDriverDialog
-                : _showAddVehicleDialog,
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(isDriversTab ? 'Add Driver' : 'Add Vehicle'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -326,51 +303,40 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     required Widget child,
   }) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1180),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.navy,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.mutedDark,
-                        ),
-                      ),
-                    ],
+      padding: AdminSpacing.page(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AdminToolbar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.navy,
                   ),
-                  Text(
-                    '$recordCount records',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.mutedDark,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.mutedDark,
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              child,
-            ],
+                ),
+              ],
+            ),
+            actions: Text(
+              '$recordCount records',
+              style: const TextStyle(fontSize: 13, color: AppColors.mutedDark),
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          child,
+        ],
       ),
     );
   }
@@ -461,8 +427,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
           final width = constraints.maxWidth < minWidth
               ? minWidth
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: width,
               child: Column(
@@ -683,6 +648,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     final action = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         backgroundColor: AppColors.glassFill,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
@@ -789,6 +755,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
+          scrollable: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -934,6 +901,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
         await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
+            scrollable: true,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -1105,6 +1073,7 @@ class _VehiclesDriversState extends State<VehiclesDriversPage>
     return await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
+            scrollable: true,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

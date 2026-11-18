@@ -1,3 +1,5 @@
+import 'pages/Admin/pages/AdminCreateTripTicket.dart'
+    show AdminCreateTripTicketPage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -101,6 +103,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             thickness: 1,
           ),
           inputDecorationTheme: InputDecorationTheme(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
             filled: true,
             fillColor: const Color(0xFFF8FAF9),
             hintStyle: const TextStyle(color: Color(0xFF718078), fontSize: 14),
@@ -134,6 +140,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
           ),
           dialogTheme: DialogThemeData(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 24,
+            ),
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
             elevation: 8,
@@ -184,6 +194,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           '/': (context) => _RoleGuard(role: 'admin', child: const Dashboard()),
           '/trip-request': (context) =>
               _RoleGuard(role: 'admin', child: const TripRequest()),
+          '/approval-letter': (context) => _RoleGuard(
+            role: 'admin',
+            child: const AdminCreateTripTicketPage(),
+          ),
           '/active-trips': (context) =>
               _RoleGuard(role: 'admin', child: const ActiveTrip()),
           '/map': (context) =>
@@ -237,7 +251,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
-      minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
     );
   }
 
@@ -255,7 +269,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
-      minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
     );
   }
 

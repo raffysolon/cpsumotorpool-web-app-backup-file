@@ -2,6 +2,7 @@
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/data/trip_return_details.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -261,6 +262,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Trip Details'),
         content: SizedBox(
           width: 430,
@@ -491,8 +493,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
           final width = constraints.maxWidth < 850
               ? 850.0
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: width,
               child: Column(
@@ -501,7 +502,7 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                   const Divider(height: 1, color: AppColors.border),
                   if (_filteredTrips.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.all(28),
+                      padding: AdminSpacing.page(context),
                       child: Text(
                         _searchController.text.isNotEmpty
                             ? 'No trips found matching "${_searchController.text}"'

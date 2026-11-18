@@ -1,8 +1,10 @@
+import 'package:cpsumotorpooladmin/widgets/trips_shell.dart';
 // ignore_for_file: file_names
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -14,7 +16,7 @@ class AdminCreateTripTicketPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
+    return TripsShell(
       currentRoute: '/approval-letter',
       child: const _AdminCreateTripTicketContent(),
     );
@@ -74,8 +76,8 @@ class _CreatedTripRecord {
       assignedVehicle: _vehicleText(vehicle),
       status: _statusText(
         _text(json['effective_status']).isNotEmpty
-        ? json['effective_status']
-        : json['status'],
+            ? json['effective_status']
+            : json['status'],
       ),
       passengers: rawPassengers.whereType<Map>().map((passenger) {
         return _PassengerRecord(
@@ -239,11 +241,15 @@ class _AdminCreateTripTicketContentState
           : tripsResult is List
           ? tripsResult
           : const [];
-      final nextTrips = rawTrips.whereType<Map>().where((trip) {
-        return _text(trip['source']).trim().toLowerCase() == 'admin';
-      }).map((trip) {
-        return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
-      }).toList();
+      final nextTrips = rawTrips
+          .whereType<Map>()
+          .where((trip) {
+            return _text(trip['source']).trim().toLowerCase() == 'admin';
+          })
+          .map((trip) {
+            return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
+          })
+          .toList();
 
       final rawDrivers = driversResult is List ? driversResult : const [];
       final rawVehicles = vehiclesResult is List ? vehiclesResult : const [];
@@ -340,8 +346,8 @@ class _AdminCreateTripTicketContentState
             );
 
             if (!mounted ||
-              !currentContext.mounted ||
-              !Navigator.of(currentDialogContext).mounted) {
+                !currentContext.mounted ||
+                !Navigator.of(currentDialogContext).mounted) {
               return;
             }
             Navigator.pop(currentDialogContext);
@@ -416,6 +422,7 @@ class _AdminCreateTripTicketContentState
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Trip Ticket Details'),
         content: SingleChildScrollView(
           child: Column(
@@ -485,97 +492,54 @@ class _AdminCreateTripTicketContentState
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTopBar(),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 16),
-                _buildTable(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTopBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: Row(
+    return SingleChildScrollView(
+      padding: AdminSpacing.page(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Create Trip Ticket',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Create approved trip tickets for your fleet',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) {
-              return AdminNotificationBell(
-                count: count,
-                onTap: () => AdminNotificationsController.instance
-                    .showNotificationsDialog(context),
-              );
-            },
-          ),
+          _buildHeader(context),
+          const SizedBox(height: 16),
+          _buildTable(),
         ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Created Trips (${_trips.length})',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.navy,
-          ),
+    return AdminToolbar(
+      title: Text(
+        '${_trips.length} tickets',
+        style: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: AppColors.navy,
         ),
-        ElevatedButton.icon(
-          onPressed: () => _showCreateTripDialog(context),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Create Trip Ticket'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+      ),
+      actions: ElevatedButton.icon(
+        onPressed: () => _showCreateTripDialog(context),
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('Create Trip Ticket'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildTable() {
+    if (!_isLoading && _trips.isEmpty) {
+      return const SizedBox(
+        width: double.infinity,
+        child: GlassCard(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          borderRadius: 18,
+          child: Text('No trips created yet.', textAlign: TextAlign.center),
+        ),
+      );
+    }
     if (_isLoading) {
       return Padding(
         padding: const EdgeInsets.all(20),
@@ -591,8 +555,7 @@ class _AdminCreateTripTicketContentState
           final tableWidth = constraints.maxWidth < 860
               ? 860.0
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: tableWidth,
               child: Column(
@@ -688,7 +651,10 @@ class _AdminCreateTripTicketContentState
                     label: const Text('Details'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
+                      ),
                       minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
@@ -708,7 +674,10 @@ class _AdminCreateTripTicketContentState
                     label: const Text('Ticket'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
+                      ),
                       minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
@@ -740,41 +709,41 @@ class _StatusBadge extends StatelessWidget {
     final completed = normalized == 'completed';
     final denied = normalized == 'denied';
     final textColor = denied
-      ? const Color(0xFFB91C1C)
-      : active
-      ? const Color(0xFF0F766E)
-      : completed
-      ? const Color(0xFF1D4ED8)
-      : scheduled
-      ? const Color(0xFF166534)
-      : const Color(0xFF92400E);
+        ? const Color(0xFFB91C1C)
+        : active
+        ? const Color(0xFF0F766E)
+        : completed
+        ? const Color(0xFF1D4ED8)
+        : scheduled
+        ? const Color(0xFF166534)
+        : const Color(0xFF92400E);
     final bgColor = denied
-      ? const Color(0xFFFEE2E2)
-      : active
-      ? const Color(0xFFCCFBF1)
-      : completed
-      ? const Color(0xFFDBEAFE)
-      : scheduled
-      ? const Color(0xFFDCFCE7)
-      : const Color(0xFFFEF3C7);
+        ? const Color(0xFFFEE2E2)
+        : active
+        ? const Color(0xFFCCFBF1)
+        : completed
+        ? const Color(0xFFDBEAFE)
+        : scheduled
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFFEF3C7);
     final borderColor = denied
-      ? const Color(0xFFFCA5A5)
-      : active
-      ? const Color(0xFF99F6E4)
-      : completed
-      ? const Color(0xFF93C5FD)
-      : scheduled
-      ? const Color(0xFF86EFAC)
-      : const Color(0xFFFCD34D);
+        ? const Color(0xFFFCA5A5)
+        : active
+        ? const Color(0xFF99F6E4)
+        : completed
+        ? const Color(0xFF93C5FD)
+        : scheduled
+        ? const Color(0xFF86EFAC)
+        : const Color(0xFFFCD34D);
     final icon = denied
-      ? Icons.cancel_rounded
-      : active
-      ? Icons.trip_origin_rounded
-      : completed
-      ? Icons.check_circle_rounded
-      : scheduled
-      ? Icons.schedule_rounded
-      : Icons.pending_rounded;
+        ? Icons.cancel_rounded
+        : active
+        ? Icons.trip_origin_rounded
+        : completed
+        ? Icons.check_circle_rounded
+        : scheduled
+        ? Icons.schedule_rounded
+        : Icons.pending_rounded;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -786,11 +755,7 @@ class _StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: textColor,
-          ),
+          Icon(icon, size: 12, color: textColor),
           const SizedBox(width: 6),
           Text(
             status,
@@ -903,10 +868,11 @@ class _CreateTripDialogState extends State<_CreateTripDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 650,
-        padding: const EdgeInsets.all(28),
+        padding: AdminSpacing.page(context),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1359,6 +1325,7 @@ class _CreateTripDialogState extends State<_CreateTripDialog> {
     final passenger = await showDialog<_PassengerDraft>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('Add Passenger'),
         content: Column(
           mainAxisSize: MainAxisSize.min,

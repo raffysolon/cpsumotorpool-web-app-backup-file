@@ -1,7 +1,9 @@
+import 'package:cpsumotorpooladmin/widgets/trips_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
@@ -230,104 +232,30 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
+    return TripsShell(
       currentRoute: '/active-trips',
-      child: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _loadTrips,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTopBar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader(),
-                        const SizedBox(height: 14),
-                        _buildStatusFilters(),
-                        const SizedBox(height: 16),
-                        _buildTable(),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      borderRadius: 0,
-      child: Row(
-        children: [
-          const Column(
+      child: RefreshIndicator(
+        onRefresh: _loadTrips,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: AdminSpacing.page(context),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Trips',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navy,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Province of Negros Occidental — Motorpool Division',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedDark),
-              ),
+              _buildStatusFilters(),
+              const SizedBox(height: 16),
+              _buildTable(),
             ],
           ),
-          const Spacer(),
-          ValueListenableBuilder<int>(
-            valueListenable: AdminNotificationsController.instance.unreadCount,
-            builder: (context, count, _) {
-              return AdminNotificationBell(
-                count: count,
-                onTap: () => AdminNotificationsController.instance
-                    .showNotificationsDialog(context),
-              );
-            },
-          ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildSectionHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'Scheduled and Active Trips',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.navy,
-          ),
-        ),
-        SizedBox(height: 2),
-        Text(
-          'Scheduled trips are approved and waiting for departure. Active trips have already started.',
-          style: TextStyle(fontSize: 13, color: AppColors.muted),
-        ),
-      ],
     );
   }
 
   Widget _buildStatusFilters() {
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: [
         _statusFilter(
           'scheduled',
@@ -361,6 +289,19 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
   }
 
   Widget _buildTable() {
+    if (!_isLoading && _visibleTrips.isEmpty) {
+      return const SizedBox(
+        width: double.infinity,
+        child: GlassCard(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          borderRadius: 18,
+          child: Text(
+            'No trips found for this view.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
     if (_isLoading) {
       return Padding(
         padding: const EdgeInsets.all(20),
@@ -376,8 +317,7 @@ class _ActiveTripState extends State<ActiveTrip> with WidgetsBindingObserver {
           final tableWidth = constraints.maxWidth < 720
               ? 720.0
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: tableWidth,
               child: Column(

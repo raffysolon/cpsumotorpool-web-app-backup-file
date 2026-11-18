@@ -162,7 +162,7 @@ class _LoginPageState extends State<LoginPage>
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 900;
+          final wide = constraints.maxWidth >= 900 && constraints.maxHeight >= 540;
           return Stack(
             fit: StackFit.expand,
             children: [

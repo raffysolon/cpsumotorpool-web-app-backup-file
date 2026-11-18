@@ -1,9 +1,11 @@
+import 'package:cpsumotorpooladmin/widgets/trips_shell.dart';
 // ignore_for_file: file_names
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/pdf_window_handle.dart';
@@ -16,7 +18,7 @@ class TripRequest extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
+    return TripsShell(
       currentRoute: '/trip-request',
       child: const _TripRequestContent(),
     );
@@ -325,8 +327,8 @@ class _TripRequestContentState extends State<_TripRequestContent>
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        AdminPageScaffold(
-          title: 'Trip Requests',
+        Padding(
+          padding: AdminSpacing.page(context),
           child: _isLoading
               ? Padding(
                   padding: const EdgeInsets.all(20),
@@ -373,6 +375,16 @@ class _TripRequestContentState extends State<_TripRequestContent>
   }
 
   Widget _buildTable() {
+    if (!_isLoading && _trips.isEmpty) {
+      return const SizedBox(
+        width: double.infinity,
+        child: GlassCard(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          borderRadius: 18,
+          child: Text('No trip requests found.', textAlign: TextAlign.center),
+        ),
+      );
+    }
     return GlassCard(
       padding: EdgeInsets.zero,
       borderRadius: 18,
@@ -393,8 +405,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
           final width = constraints.maxWidth < 760
               ? 760.0
               : constraints.maxWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          return AdminTableScroll(
             child: SizedBox(
               width: width,
               child: Column(
@@ -704,10 +715,11 @@ class _TripDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: SingleChildScrollView(
         child: Container(
           width: 600,
-          padding: const EdgeInsets.all(28),
+          padding: AdminSpacing.page(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
