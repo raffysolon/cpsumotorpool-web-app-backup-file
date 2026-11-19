@@ -24,7 +24,13 @@ class AdminNotificationsController {
   final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
   final ValueNotifier<List<Map<String, dynamic>>> notifications =
       ValueNotifier<List<Map<String, dynamic>>>(const []);
-  Future<void> refresh() async {
+  Future<void>? _refreshRequest;
+
+  Future<void> refresh() => _refreshRequest ??= _refresh().whenComplete(() {
+    _refreshRequest = null;
+  });
+
+  Future<void> _refresh() async {
     try {
       final countResult = await NotificationService.getUnreadCount();
       final listResult = await NotificationService.getNotifications();
@@ -451,16 +457,21 @@ class _SidebarState extends State<_Sidebar> {
   bool _isPageVisible = true;
   bool _isTripCountsRefreshing = false;
   bool _isNotificationRefreshRunning = false;
+  late final _SidebarLifecycleObserver _lifecycleObserver;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(_SidebarLifecycleObserver(this));
+    _lifecycleObserver = _SidebarLifecycleObserver(this);
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
     _loadName();
     _loadTripCounts();
     _refreshNotificationBell(background: true);
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || !_isPageVisible) return;
+      if (!mounted || !_isPageVisible ||
+          ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
       if (!_isTripCountsRefreshing) {
         _loadTripCounts(background: true);
       }
@@ -473,13 +484,14 @@ class _SidebarState extends State<_Sidebar> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(_SidebarLifecycleObserver(this));
+    WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     super.dispose();
   }
 
   void _handleAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _isPageVisible = true;
+      if (ModalRoute.of(context)?.isCurrent == false) return;
       if (!_isTripCountsRefreshing) {
         _loadTripCounts(background: true);
       }
@@ -517,10 +529,8 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   Future<void> _loadTripCounts({bool background = false}) async {
-    if (background) {
-      if (_isTripCountsRefreshing) return;
-      _isTripCountsRefreshing = true;
-    }
+    if (_isTripCountsRefreshing) return;
+    _isTripCountsRefreshing = true;
 
     try {
       final result = await TripService.getAllTrips();
@@ -569,9 +579,7 @@ class _SidebarState extends State<_Sidebar> {
         });
       }
     } finally {
-      if (background) {
-        _isTripCountsRefreshing = false;
-      }
+      _isTripCountsRefreshing = false;
     }
   }
 

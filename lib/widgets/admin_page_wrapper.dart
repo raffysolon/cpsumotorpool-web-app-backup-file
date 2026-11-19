@@ -10,7 +10,7 @@ import 'package:cpsumotorpooladmin/pages/Admin/pages/TripRequest.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/Activetrip.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/Map.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/VehiclesDrivers.dart';
-import 'package:cpsumotorpooladmin/pages/Admin/pages/CoordinatorAssignments.dart';
+import 'package:cpsumotorpooladmin/pages/Admin/pages/CoordinatorAssignments.dart' show CoordinatorAssignments;
 import 'package:cpsumotorpooladmin/pages/Admin/pages/TripHistory.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/SnycLogs.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/Settings.dart';

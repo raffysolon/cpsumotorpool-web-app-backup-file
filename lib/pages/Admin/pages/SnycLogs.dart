@@ -1,257 +1,176 @@
 // ignore_for_file: file_names
-
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cpsumotorpooladmin/services/gps_sync_service.dart';
+import 'package:cpsumotorpooladmin/services/gps_service.dart';
 import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
-// ═══════════════════════════════════════════════════════════════
-// SYNC LOGS PAGE
-// Shows GPS device sync status with refresh option
-// Route: /sync-logs
-// ═══════════════════════════════════════════════════════════════
-
-// === Sync logs page: synchronization history and status ===
-// ─── Page Wrapper ───
-class SyncLogs extends StatelessWidget {
-  const SyncLogs({super.key});
-
+class SyncLogs extends StatefulWidget {
+  const SyncLogs({super.key, this.loadLogs = GpsSyncService.getLogs});
+  final Future<Map<String, dynamic>> Function(int page) loadLogs;
   @override
-  Widget build(BuildContext context) {
-    return AppShell(
-      currentRoute: '/sync-logs',
-      child: const _SyncLogsContent(),
-    );
-  }
+  State<SyncLogs> createState() => _SyncLogsState();
 }
 
-// ─── Data Model ───
-class _SyncLogData {
-  final String deviceId;
-  final String timestamp;
-  final String status; // 'Synced', 'Pending'
+class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
+  Timer? _timer;
+  bool _visible = true;
+  bool _loading = true;
+  bool _fetching = false;
+  int _page = 1;
+  int _lastPage = 1;
+  String? _error;
+  List<Map<String, dynamic>> _records = [];
 
-  const _SyncLogData({
-    required this.deviceId,
-    required this.timestamp,
-    required this.status,
-  });
-}
-
-// ─── Mock Data (replace with API/database later) ───
-const _mockLogs = [
-  _SyncLogData(
-    deviceId: 'GPS-001',
-    timestamp: '2026-08-18  14:32:05',
-    status: 'Synced',
-  ),
-  _SyncLogData(
-    deviceId: 'GPS-002',
-    timestamp: '2026-08-18  14:31:58',
-    status: 'Synced',
-  ),
-  _SyncLogData(
-    deviceId: 'GPS-003',
-    timestamp: '2026-08-18  14:28:00',
-    status: 'Pending',
-  ),
-  _SyncLogData(
-    deviceId: 'GPS-004',
-    timestamp: '2026-08-18  14:30:45',
-    status: 'Synced',
-  ),
-  _SyncLogData(
-    deviceId: 'GPS-005',
-    timestamp: '2026-08-18  14:15:10',
-    status: 'Pending',
-  ),
-  _SyncLogData(
-    deviceId: 'GPS-006',
-    timestamp: '2026-08-18  14:32:01',
-    status: 'Synced',
-  ),
-];
-
-// ─── Main Content Layout ───
-class _SyncLogsContent extends StatefulWidget {
-  const _SyncLogsContent();
-
-  @override
-  State<_SyncLogsContent> createState() => _SyncLogsContentState();
-}
-
-class _SyncLogsContentState extends State<_SyncLogsContent> {
   @override
   void initState() {
     super.initState();
-    AdminNotificationsController.instance.refresh();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted && _visible && ModalRoute.of(context)?.isCurrent != false) {
+        _load();
+      }
+    });
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AdminPageScaffold(
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _visible = state == AppLifecycleState.resumed;
+  }
+
+  Future<void> _load([int? page]) async {
+    if (_fetching || !mounted) return;
+    setState(() => _fetching = true);
+    final requestedPage = page ?? _page;
+    try {
+      final result = await widget.loadLogs(requestedPage);
+      final records = (result['data'] as List)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _records = records;
+        _page = requestedPage;
+        _lastPage = (result['last_page'] as num?)?.toInt() ?? 1;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+        if (error is GpsAccessException) _records = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _fetching = false;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _time(dynamic value) {
+    final parsed = DateTime.tryParse('$value');
+    if (parsed == null) return 'Unavailable';
+    final pht = parsed.toUtc().add(const Duration(hours: 8));
+    return '${pht.toIso8601String().substring(0, 19).replaceFirst('T', ' ')} PHT';
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppShell(
+    currentRoute: '/sync-logs',
+    child: AdminPageScaffold(
       title: 'Sync Logs',
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader(),
-            const SizedBox(height: 16),
-            _buildTable(),
+            AdminToolbar(
+              title: const Text('GPS records received by the server'),
+              actions: OutlinedButton.icon(
+                onPressed: _fetching ? null : () => _load(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if (_records.isEmpty && _error == null)
+              const Text('No GPS records received yet.')
+            else if (_records.isNotEmpty)
+              GlassCard(
+                child: AdminTableScroll(
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Device')),
+                      DataColumn(label: Text('Received (PHT)')),
+                      DataColumn(label: Text('Coordinates')),
+                      DataColumn(label: Text('Satellites')),
+                    ],
+                    rows: _records.map((record) {
+                      final device = record['device'];
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Text(
+                              device is Map
+                                  ? '${device['device_id'] ?? 'Unavailable'}'
+                                  : 'Unregistered device',
+                            ),
+                          ),
+                          DataCell(Text(_time(record['recorded_at']))),
+                          DataCell(
+                            Text(
+                              '${record['latitude']}, ${record['longitude']}',
+                            ),
+                          ),
+                          DataCell(
+                            Text('${record['satellites'] ?? 'Unknown'}'),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            if (_lastPage > 1)
+              Wrap(
+                children: [
+                  TextButton(
+                    onPressed: _fetching || _page <= 1
+                        ? null
+                        : () => _load(_page - 1),
+                    child: const Text('Previous'),
+                  ),
+                  Text('Page $_page of $_lastPage'),
+                  TextButton(
+                    onPressed: _fetching || _page >= _lastPage
+                        ? null
+                        : () => _load(_page + 1),
+                    child: const Text('Next'),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
-    );
-  }
-
-  // ─── Section Header ("GPS Sync Logs" + Refresh button) ───
-  Widget _buildSectionHeader() {
-    return AdminToolbar(
-      title: const Text(
-        'GPS Sync Logs',
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: AppColors.navy,
-        ),
-      ),
-      actions: OutlinedButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.refresh, size: 16),
-        label: const Text('Refresh'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.navy,
-          side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-
-  // ─── Table Container ───
-  Widget _buildTable() {
-    const headerStyle = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      color: AppColors.mutedDark,
-      letterSpacing: 0.8,
-    );
-
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      child: LayoutBuilder(
-        builder: (context, constraints) => AdminTableScroll(
-          child: SizedBox(
-            width: constraints.maxWidth.clamp(560.0, double.infinity),
-            child: Column(
-              children: [
-                // ─── Table Header Row ───
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                        flex: 4,
-                        child: Text('DEVICE ID', style: headerStyle),
-                      ),
-                      Expanded(
-                        flex: 6,
-                        child: Text('TIMESTAMP', style: headerStyle),
-                      ),
-                      Expanded(
-                        flex: 3,
-                        child: Text('STATUS', style: headerStyle),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: AppColors.border),
-                // ─── Table Data Rows ───
-                ..._mockLogs.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final log = entry.value;
-                  return Column(
-                    children: [
-                      _buildRow(log),
-                      if (i < _mockLogs.length - 1)
-                        const Divider(height: 1, color: AppColors.border),
-                    ],
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Table Data Row ───
-  Widget _buildRow(_SyncLogData log) {
-    final isSynced = log.status == 'Synced';
-    final statusColor = isSynced
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFD97706);
-    final statusBg = isSynced
-        ? const Color(0xFFDCFCE7)
-        : const Color(0xFFFEF3C7);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          // Device ID
-          Expanded(
-            flex: 4,
-            child: Text(
-              log.deviceId,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.navy,
-              ),
-            ),
-          ),
-          // Timestamp
-          Expanded(
-            flex: 6,
-            child: Text(
-              log.timestamp,
-              style: const TextStyle(fontSize: 13, color: AppColors.navy),
-            ),
-          ),
-          // Status badge
-          Expanded(
-            flex: 3,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  log.status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }

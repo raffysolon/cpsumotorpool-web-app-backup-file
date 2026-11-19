@@ -1,3 +1,4 @@
+import 'api_reads.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -59,7 +60,7 @@ class VehicleService {
 
     final uri = Uri.parse('$baseUrl/vehicles').replace(queryParameters: queryParams);
     
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
   }

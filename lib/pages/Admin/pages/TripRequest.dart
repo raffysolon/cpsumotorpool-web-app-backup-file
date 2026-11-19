@@ -129,7 +129,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
     AdminNotificationsController.instance.refresh();
     _loadTrips();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || !_isPageVisible || _isDialogOpen || _isRefreshRunning) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false || !_isPageVisible || _isDialogOpen || _isRefreshRunning) {
         return;
       }
       _loadTrips(background: true);
@@ -140,6 +140,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _isPageVisible = true;
+      if (ModalRoute.of(context)?.isCurrent == false) return;
       if (!_isRefreshRunning) {
         _loadTrips(background: true);
       }

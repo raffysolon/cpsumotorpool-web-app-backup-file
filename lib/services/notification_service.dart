@@ -1,3 +1,4 @@
+import 'api_reads.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -32,7 +33,7 @@ class NotificationService {
 
   static Future<List<Map<String, dynamic>>> getNotifications() async {
     debugPrint('NotificationService.getNotifications(): GET $baseUrl/notifications');
-    final response = await http.get(
+    final response = await ApiReads.get(
       Uri.parse('$baseUrl/notifications'),
       headers: await _headers(),
     );
@@ -58,7 +59,7 @@ class NotificationService {
 
   static Future<dynamic> getUnreadCount() async {
     debugPrint('NotificationService.getUnreadCount(): GET $baseUrl/notifications/unread-count');
-    final response = await http.get(
+    final response = await ApiReads.get(
       Uri.parse('$baseUrl/notifications/unread-count'),
       headers: await _headers(),
     );

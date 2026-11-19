@@ -46,6 +46,24 @@ class MapPage extends StatelessWidget {
                           label: 'Recent GPS',
                         ),
                         _MapLegend(color: Colors.grey, label: 'Outdated GPS'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.question_mark_rounded,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Online, no scheduled trip',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.mutedDark,
+                              ),
+                            ),
+                          ],
+                        ),
                         Text(
                           'Refresh every 5 seconds',
                           style: TextStyle(

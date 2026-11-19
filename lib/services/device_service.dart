@@ -1,3 +1,4 @@
+import 'api_reads.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -60,7 +61,7 @@ class DeviceService {
 
     final uri = Uri.parse('$baseUrl/devices').replace(queryParameters: queryParams);
     
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
   }
@@ -120,7 +121,7 @@ class DeviceService {
 
   /// Get devices by vehicle ID
   static Future<dynamic> getDevicesByVehicle(int vehicleId) async {
-    final response = await http.get(
+    final response = await ApiReads.get(
       Uri.parse('$baseUrl/devices/vehicle/$vehicleId'),
       headers: await _headers(),
     );
@@ -130,7 +131,7 @@ class DeviceService {
 
   /// Get device details including last location
   static Future<dynamic> getDeviceDetails(String deviceId) async {
-    final response = await http.get(
+    final response = await ApiReads.get(
       Uri.parse('$baseUrl/devices/$deviceId'),
       headers: await _headers(),
     );

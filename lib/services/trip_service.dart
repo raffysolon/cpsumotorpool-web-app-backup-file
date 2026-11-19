@@ -1,3 +1,4 @@
+import 'api_reads.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
@@ -52,7 +53,7 @@ class TripService {
     );
 
     debugPrint('TripService.getMyTrips(): GET $uri');
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
     debugPrint('TripService.getMyTrips(): status=${response.statusCode}');
     debugPrint('TripService.getMyTrips(): body=${response.body}');
     
@@ -103,7 +104,7 @@ class TripService {
     final uri = Uri.parse('$baseUrl/trips').replace(queryParameters: queryParams);
     debugPrint('TripService.getAllTrips(): GET $uri');
     
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
 
     debugPrint(
       'TripService.getAllTrips(): status=${response.statusCode} body=${response.body}',
@@ -168,10 +169,11 @@ class TripService {
   static Future<http.Response> getTripTicket(int id) async {
     final headers = await _headers();
     headers['Accept'] = 'application/pdf';
-    final response = await http.get(
+    final response = await ApiReads.get(
       Uri.parse('$baseUrl/trips/$id/print'),
       headers: headers,
-    ).timeout(const Duration(seconds: 150));
+      timeout: const Duration(seconds: 150),
+    );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
@@ -263,7 +265,7 @@ class TripService {
             '$baseUrl/available-drivers?scheduled_departure=${Uri.encodeQueryComponent(scheduledDeparture)}',
           );
 
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
   }
@@ -277,7 +279,7 @@ class TripService {
             '$baseUrl/available-vehicles?scheduled_departure=${Uri.encodeQueryComponent(scheduledDeparture)}',
           );
 
-    final response = await http.get(uri, headers: await _headers());
+    final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
   }

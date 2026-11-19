@@ -755,7 +755,7 @@ class _TextRow extends StatelessWidget {
   }
 }
 
-// === Trip model: temporary sample data until the backend is connected ===
+// === Trip view model populated from the backend ===
 class Trip {
   const Trip({
     required this.id,

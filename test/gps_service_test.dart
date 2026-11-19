@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cpsumotorpooladmin/services/gps_service.dart';
+import 'package:cpsumotorpooladmin/services/api_reads.dart';
+import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/services/notification_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -41,7 +44,53 @@ void main() {
     }
   });
 
+  test('UTC, Philippine offsets and unzoned backend UTC are equivalent', () {
+    final now = DateTime.utc(2026, 11, 18, 2, 0, 15);
+    for (final timestamp in [
+      '2026-11-18T02:00:00Z',
+      '2026-11-18T10:00:00+08:00',
+      '2026-11-18T10:00:00+0800',
+      '2026-11-18 02:00:00',
+      '2026-11-18T02:00:00.000000',
+    ]) {
+      final location = GpsLocation.fromJson({
+        ...locationJson(),
+        'recorded_at': timestamp,
+      });
+      expect(location.recordedAt, DateTime.utc(2026, 11, 18, 2));
+      expect(location.recordedAt.isUtc, isTrue);
+      expect(location.isRecentAt(now), isTrue, reason: timestamp);
+      expect(location.isRecentAt(now.toLocal()), isTrue);
+      expect(location.isRecentAt(now.add(const Duration(minutes: 1))), isFalse);
+    }
+  });
+
+  test('freshness covers upload delays but expires and bounds clock skew', () {
+    final location = GpsLocation.fromJson(locationJson());
+    for (final seconds in [-5, 0, 15, 20, 30, 45, 60]) {
+      expect(
+        location.isRecentAt(
+          location.recordedAt.add(Duration(seconds: seconds)),
+        ),
+        isTrue,
+        reason: 'age $seconds seconds',
+      );
+    }
+    for (final seconds in [-28800, -6, 61, 300, 28800]) {
+      expect(
+        location.isRecentAt(
+          location.recordedAt.add(Duration(seconds: seconds)),
+        ),
+        isFalse,
+        reason: 'age $seconds seconds',
+      );
+    }
+  });
+
   test('rate limiting pauses subsequent GPS requests', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': 'limited-session',
+    });
     var requests = 0;
     await http.runWithClient(
       () async {
@@ -55,6 +104,41 @@ void main() {
       }),
     );
   });
+
+  test(
+    'registry 429 pauses GPS, trip and notification reads together',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'auth_token': 'registry-limited',
+      });
+      var requests = 0;
+      await http.runWithClient(
+        () async {
+          await expectLater(
+            GpsService.getTrackedVehicles(),
+            throwsA(isA<ApiRateLimitException>()),
+          );
+          await expectLater(
+            GpsService.getLatestLocation(7),
+            throwsA(isA<ApiRateLimitException>()),
+          );
+          await expectLater(
+            TripService.getAllTrips(),
+            throwsA(isA<ApiRateLimitException>()),
+          );
+          await expectLater(
+            NotificationService.getUnreadCount(),
+            throwsA(isA<ApiRateLimitException>()),
+          );
+          expect(requests, 1);
+        },
+        () => MockClient((_) async {
+          requests++;
+          return http.Response('{}', 429, headers: {'retry-after': '120'});
+        }),
+      );
+    },
+  );
 
   test(
     'uses authenticated GET and shares concurrent and cached requests',

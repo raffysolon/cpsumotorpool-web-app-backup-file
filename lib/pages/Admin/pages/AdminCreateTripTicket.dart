@@ -185,6 +185,7 @@ class _AdminCreateTripTicketContentState
     WidgetsBinding.instance.addObserver(this);
     _loadData();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (ModalRoute.of(context)?.isCurrent == false) return;
       if (!mounted ||
           !_isPageVisible ||
           _isDialogOpen ||
@@ -200,6 +201,7 @@ class _AdminCreateTripTicketContentState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _isPageVisible = true;
+      if (ModalRoute.of(context)?.isCurrent == false) return;
       if (!_isRefreshRunning) {
         _loadData(background: true);
       }

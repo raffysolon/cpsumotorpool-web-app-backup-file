@@ -1,6 +1,6 @@
+import 'api_reads.dart';
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
@@ -23,6 +23,8 @@ class GpsLocation {
     required this.longitude,
     required this.recordedAt,
     this.satellites,
+    this.tripContextAvailable = false,
+    this.trip,
   });
 
   final int id;
@@ -31,16 +33,31 @@ class GpsLocation {
   final double longitude;
   final int? satellites;
   final DateTime recordedAt;
+  final bool tripContextAvailable;
+  final GpsTrip? trip;
+
+  bool get isUnscheduled => tripContextAvailable && trip == null;
 
   LatLng get position => LatLng(latitude, longitude);
 
-  /// A location is considered recent if received within 30 seconds.
-  bool get isRecent {
-    final now = DateTime.now().toUtc();
-    final recorded = recordedAt.toUtc();
-    final age = now.difference(recorded);
+  /// Allow four 15-second upload intervals for LTE/polling delays.
+  /// A small future tolerance accommodates clock skew without hiding bad dates.
+  bool get isRecent => isRecentAt(DateTime.now());
 
-    return !age.isNegative && age <= const Duration(seconds: 30);
+  bool isRecentAt(DateTime now) {
+    final age = now.toUtc().difference(recordedAt.toUtc());
+    return age >= const Duration(seconds: -5) &&
+        age <= const Duration(seconds: 60);
+  }
+
+  static DateTime _parseRecordedAt(String value) {
+    final timestamp = value.trim();
+    // Laravel/database timestamps without an offset follow the backend's UTC
+    // convention. DateTime.parse otherwise interprets them in the viewer's zone.
+    final hasOffset = RegExp(
+      r'[Tt ].*(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$',
+    ).hasMatch(timestamp);
+    return DateTime.parse(hasOffset ? timestamp : '${timestamp}Z').toUtc();
   }
 
   factory GpsLocation.fromJson(Map<String, dynamic> json) {
@@ -64,9 +81,42 @@ class GpsLocation {
       latitude: latitude,
       longitude: longitude,
       satellites: (json['satellites'] as num?)?.toInt(),
-      recordedAt: DateTime.parse(json['recorded_at'].toString()),
+      recordedAt: _parseRecordedAt(json['recorded_at'].toString()),
+      tripContextAvailable: json.containsKey('trip'),
+      trip: json['trip'] is Map<String, dynamic>
+          ? GpsTrip.fromJson(json['trip'] as Map<String, dynamic>)
+          : null,
     );
   }
+}
+
+class GpsTrip {
+  const GpsTrip({
+    required this.id,
+    required this.status,
+    required this.scheduledDeparture,
+    this.actualDeparture,
+    this.lateMinutes,
+    this.departureOverdue = false,
+  });
+
+  final int id;
+  final String status;
+  final DateTime scheduledDeparture;
+  final DateTime? actualDeparture;
+  final int? lateMinutes;
+  final bool departureOverdue;
+
+  factory GpsTrip.fromJson(Map<String, dynamic> json) => GpsTrip(
+    id: (json['id'] as num).toInt(),
+    status: json['status'].toString(),
+    scheduledDeparture: DateTime.parse(json['scheduled_departure'].toString()),
+    actualDeparture: json['actual_departure_at'] == null
+        ? null
+        : DateTime.parse(json['actual_departure_at'].toString()),
+    lateMinutes: (json['late_minutes'] as num?)?.toInt(),
+    departureOverdue: json['departure_overdue'] == true,
+  );
 }
 
 /// Represents a vehicle assigned to a registered tracking device.
@@ -120,10 +170,6 @@ class GpsService {
   // Prevent duplicate simultaneous requests.
   static final Map<int, Future<GpsLocation?>> _locationRequests = {};
 
-  // === Shared API cooldown ===
-
-  static DateTime? _retryAfter;
-
   // Track the current authenticated session.
   static String? _sessionToken;
   static int _sessionGeneration = 0;
@@ -162,43 +208,10 @@ class GpsService {
     return {'Accept': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
-  // === Rate limit handling ===
-
-  static bool get _isCoolingDown {
-    final retryAfter = _retryAfter;
-
-    return retryAfter != null && DateTime.now().isBefore(retryAfter);
-  }
-
-  static void _startCooldown({int seconds = 60}) {
-    final nextRetry = DateTime.now().add(Duration(seconds: seconds));
-
-    if (_retryAfter == null || nextRetry.isAfter(_retryAfter!)) {
-      _retryAfter = nextRetry;
-    }
-  }
-
-  static bool _isRateLimitError(Object error) {
-    final message = error.toString().toLowerCase();
-
-    return message.contains('too many requests') || message.contains('429');
-  }
-
-  static Exception _cooldownException() {
-    return Exception(
-      'API request limit reached. '
-      'GPS tracking will retry automatically.',
-    );
-  }
-
   // === Retrieve registered vehicles ===
 
   static Future<List<TrackedVehicle>> getTrackedVehicles() async {
     await _headers();
-
-    if (_isCoolingDown) {
-      throw _cooldownException();
-    }
 
     final now = DateTime.now();
 
@@ -292,12 +305,6 @@ class GpsService {
           'GPS access denied. Please log in again.',
         );
       }
-      if (_isRateLimitError(error)) {
-        _startCooldown();
-
-        throw _cooldownException();
-      }
-
       rethrow;
     }
   }
@@ -306,10 +313,6 @@ class GpsService {
 
   static Future<GpsLocation?> getLatestLocation(int vehicleId) async {
     final headers = await _headers();
-
-    if (_isCoolingDown) {
-      throw _cooldownException();
-    }
 
     final now = DateTime.now();
 
@@ -353,9 +356,10 @@ class GpsService {
   ) async {
     final uri = Uri.parse('$baseUrl/gps/vehicles/$vehicleId/latest');
 
-    final response = await http
-        .get(uri, headers: headers)
-        .timeout(const Duration(seconds: 30));
+    final response = await ApiReads.get(
+      uri,
+      headers: headers,
+    ).timeout(const Duration(seconds: 30));
 
     await _checkSession(generation);
 
@@ -414,17 +418,6 @@ class GpsService {
       );
     }
 
-    if (response.statusCode == 429) {
-      // Respect the backend's Retry-After header.
-      final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
-
-      _startCooldown(
-        seconds: retryAfter != null && retryAfter > 60 ? retryAfter : 60,
-      );
-
-      throw _cooldownException();
-    }
-
     throw Exception(
       'Unable to retrieve GPS location '
       '(${response.statusCode}).',
@@ -446,8 +439,6 @@ class GpsService {
     _lastLocationRefresh.clear();
 
     _locationRequests.clear();
-
-    _retryAfter = null;
 
     _sessionToken = null;
   }

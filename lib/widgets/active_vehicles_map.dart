@@ -36,7 +36,9 @@ class ActiveVehiclesMap extends StatefulWidget {
   State<ActiveVehiclesMap> createState() => _ActiveVehiclesMapState();
 }
 
-class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
+class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
+    with WidgetsBindingObserver {
+  bool _isVisible = true;
   final MapController _controller = MapController();
 
   Timer? _refreshTimer;
@@ -56,8 +58,9 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
-    _fetchGpsLocations();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchGpsLocations());
 
     // Refresh actual GPS locations every five seconds.
     _refreshTimer = Timer.periodic(
@@ -66,11 +69,22 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
     );
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isVisible = state == AppLifecycleState.resumed;
+    if (_isVisible) _fetchGpsLocations();
+  }
+
   // === Retrieve actual vehicle locations ===
 
   Future<void> _fetchGpsLocations() async {
     // Prevent overlapping API requests.
-    if (_isFetching || !mounted) return;
+    if (_isFetching ||
+        !mounted ||
+        !_isVisible ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
 
     _isFetching = true;
 
@@ -168,6 +182,17 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
 
   // === Format GPS recording time ===
 
+  String _tripStatus(GpsLocation location) {
+    if (!location.tripContextAvailable) return 'Trip assignment unavailable';
+    final trip = location.trip;
+    if (trip == null) return 'No scheduled or active trip';
+    return 'Trip #${trip.id}: ${trip.status}\n'
+        'Scheduled: ${_formatRecordedAt(trip.scheduledDeparture)}'
+        '${trip.departureOverdue ? '\nNot started — 5-minute grace period passed' : ''}'
+        '${trip.actualDeparture == null ? '' : '\nStarted: ${_formatRecordedAt(trip.actualDeparture!)}'}'
+        '${trip.lateMinutes == null ? '' : '\nLate: ${trip.lateMinutes} minute(s)'}';
+  }
+
   String _formatRecordedAt(DateTime recordedAt) {
     final local = recordedAt.toUtc().add(const Duration(hours: 8));
 
@@ -181,6 +206,7 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _controller.dispose();
     super.dispose();
@@ -247,8 +273,12 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
                           'Longitude: ${item.location.longitude.toStringAsFixed(6)}\n'
                           'Satellites: ${item.location.satellites ?? 'Unknown'}\n'
                           'Last received: ${_formatRecordedAt(item.location.recordedAt)}\n'
-                          'Status: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}',
-                      child: _VehiclePin(isRecent: item.location.isRecent),
+                          'Status: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}\n'
+                          '${_tripStatus(item.location)}',
+                      child: _VehiclePin(
+                        isRecent: item.location.isRecent,
+                        hasNoTrip: item.location.isUnscheduled,
+                      ),
                     ),
                   ),
               ],
@@ -452,9 +482,10 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap> {
 // === Vehicle marker ===
 
 class _VehiclePin extends StatelessWidget {
-  const _VehiclePin({required this.isRecent});
+  const _VehiclePin({required this.isRecent, this.hasNoTrip = false});
 
   final bool isRecent;
+  final bool hasNoTrip;
 
   @override
   Widget build(BuildContext context) {
@@ -471,8 +502,10 @@ class _VehiclePin extends StatelessWidget {
           ),
         ],
       ),
-      child: const Icon(
-        Icons.local_shipping_rounded,
+      child: Icon(
+        isRecent && hasNoTrip
+            ? Icons.question_mark_rounded
+            : Icons.local_shipping_rounded,
         color: Colors.white,
         size: 18,
       ),

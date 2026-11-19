@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:cpsumotorpooladmin/services/gps_service.dart';
+import 'package:cpsumotorpooladmin/services/api_reads.dart';
 import 'package:cpsumotorpooladmin/widgets/active_vehicles_map.dart';
+import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +33,222 @@ GpsLocation location(int id, {double latitude = 10.589795}) => GpsLocation(
 );
 
 void main() {
+  for (final state in [
+    'unassigned',
+    'scheduled',
+    'active',
+    'stale',
+    'legacy',
+  ]) {
+    testWidgets('marker and trip tooltip reflect $state GPS', (tester) async {
+      final trip = {
+        'id': 42,
+        'status': state == 'active' ? 'active' : 'scheduled',
+        'scheduled_departure': '2026-11-18T01:00:00Z',
+        'actual_departure_at': state == 'active'
+            ? '2026-11-18T01:12:00Z'
+            : null,
+        'late_minutes': state == 'active' ? 12 : null,
+        'departure_overdue': state == 'scheduled',
+      };
+      final gps = GpsLocation.fromJson({
+        'id': 1,
+        'vehicle_id': 7,
+        'latitude': 10.5,
+        'longitude': 123.4,
+        'recorded_at': DateTime.now()
+            .toUtc()
+            .subtract(Duration(seconds: state == 'stale' ? 120 : 15))
+            .toIso8601String(),
+        if (state != 'legacy')
+          'trip': ['scheduled', 'active'].contains(state) ? trip : null,
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ActiveVehiclesMap(
+              loadVehicles: () async => [vehicles.first],
+              loadLocation: (_) async => gps,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byIcon(Icons.question_mark_rounded),
+        state == 'unassigned' ? findsOneWidget : findsNothing,
+      );
+      final tooltip = tester.widget<Tooltip>(
+        find.descendant(
+          of: find.byType(MarkerLayer),
+          matching: find.byType(Tooltip),
+        ),
+      );
+      if (state == 'active') {
+        expect(tooltip.message, contains('Late: 12 minute(s)'));
+      }
+      if (state == 'scheduled') {
+        expect(tooltip.message, contains('5-minute grace period passed'));
+      }
+      if (state == 'legacy') {
+        expect(tooltip.message, contains('Trip assignment unavailable'));
+      }
+      if (state == 'unassigned') {
+        expect(tooltip.message, contains('No scheduled or active trip'));
+      }
+      expect(
+        tooltip.message,
+        contains(state == 'stale' ? 'Outdated GPS' : 'Recent GPS'),
+      );
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+  testWidgets('retained GPS ages to gray during a rate-limit cooldown', (
+    tester,
+  ) async {
+    var now = DateTime.utc(2026, 11, 18, 13);
+    final gps = _ClockedLocation(now, () => now);
+    var limited = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActiveVehiclesMap(
+            loadVehicles: () async {
+              if (limited) {
+                throw ApiRateLimitException(
+                  now.add(const Duration(minutes: 1)),
+                );
+              }
+              return [vehicles.first];
+            },
+            loadLocation: (_) async => gps,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('1 recent GPS / 1 registered'), findsOneWidget);
+    limited = true;
+    now = now.add(const Duration(seconds: 61));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    final markers = tester
+        .widget<MarkerLayer>(find.byType(MarkerLayer))
+        .markers;
+    expect(markers, hasLength(1));
+    expect(markers.single.point, gps.position);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Tooltip &&
+            (widget.message?.contains('Status: Outdated GPS') ?? false),
+      ),
+      findsOneWidget,
+    );
+    final pin = find.descendant(
+      of: find.byType(MarkerLayer),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
+      ),
+    );
+    expect(
+      (tester.widget<Container>(pin).decoration! as BoxDecoration).color,
+      Colors.grey,
+    );
+    expect(find.textContaining('API request limit reached'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('covered routes and hidden app stop GPS polling', (tester) async {
+    final navigator = GlobalKey<NavigatorState>();
+    var calls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        home: Scaffold(
+          body: ActiveVehiclesMap(
+            loadVehicles: () async => [vehicles.first],
+            loadLocation: (_) async {
+              calls++;
+              return location(7);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(calls, 1);
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Covered')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
+    expect(calls, 1);
+    navigator.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    expect(calls, 2);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump(const Duration(seconds: 15));
+    expect(calls, 2);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(calls, 3);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('fresh GPS is green and stale GPS is gray after refresh', (
+    tester,
+  ) async {
+    var stale = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActiveVehiclesMap(
+            loadVehicles: () async => [vehicles.first],
+            loadLocation: (_) async => GpsLocation.fromJson({
+              'id': 1,
+              'vehicle_id': 7,
+              'latitude': 10.589795,
+              'longitude': 123.476213,
+              'recorded_at': DateTime.now()
+                  .toUtc()
+                  .subtract(Duration(seconds: stale ? 120 : 15))
+                  .toIso8601String(),
+            }),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    Color? markerColor() {
+      final pin = find.descendant(
+        of: find.byType(MarkerLayer),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
+        ),
+      );
+      return (tester.widget<Container>(pin).decoration! as BoxDecoration).color;
+    }
+
+    expect(find.textContaining('1 recent GPS / 1 registered'), findsOneWidget);
+    expect(markerColor(), AppColors.primary);
+    stale = true;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(find.textContaining('0 recent GPS / 1 registered'), findsOneWidget);
+    expect(markerColor(), Colors.grey);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('empty GPS state has no sample markers or invented timestamp', (
     tester,
   ) async {
@@ -155,4 +373,18 @@ void main() {
     expect(find.text('Please log in again.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+}
+
+class _ClockedLocation extends GpsLocation {
+  _ClockedLocation(DateTime recorded, this.now)
+    : super(
+        id: 1,
+        vehicleId: 7,
+        latitude: 10.589795,
+        longitude: 123.476213,
+        recordedAt: recorded,
+      );
+  final DateTime Function() now;
+  @override
+  bool get isRecent => isRecentAt(now());
 }
