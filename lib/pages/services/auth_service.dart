@@ -114,10 +114,7 @@ class AuthService {
     await _storage.deleteAll();
   }
 
-  static Future<void> changePassword(
-    String currentPassword,
-    String newPassword,
-  ) async {
+  static Future<void> changePassword(String currentPassword) async {
     final token = await getToken();
     if (token == null || token.isEmpty) {
       throw Exception('Authentication token not found');
@@ -130,14 +127,18 @@ class AuthService {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        'current_password': currentPassword,
-        'new_password': newPassword,
-      }),
+      body: jsonEncode({'current_password': currentPassword}),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Unable to change password');
+      var message = 'Unable to send the password reset email.';
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['message'] is String) {
+          message = data['message'] as String;
+        }
+      } catch (_) {}
+      throw LoginException(message);
     }
   }
 

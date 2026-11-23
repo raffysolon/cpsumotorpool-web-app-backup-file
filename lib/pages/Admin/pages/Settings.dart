@@ -18,8 +18,7 @@ class Settings extends StatefulWidget {
 
 class _SettingsState extends State<Settings> {
   final _currentPassword = TextEditingController();
-  final _newPassword = TextEditingController();
-  final _confirmPassword = TextEditingController();
+  bool _hidePassword = true;
   String _name = 'Loading...';
   String _email = 'Loading...';
   bool _saving = false;
@@ -33,8 +32,6 @@ class _SettingsState extends State<Settings> {
   @override
   void dispose() {
     _currentPassword.dispose();
-    _newPassword.dispose();
-    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -54,22 +51,16 @@ class _SettingsState extends State<Settings> {
   }
 
   Future<void> _changePassword() async {
-    if (_newPassword.text != _confirmPassword.text) {
-      _message('New passwords do not match.');
-      return;
-    }
     setState(() => _saving = true);
     try {
-      await AuthService.changePassword(
-        _currentPassword.text,
-        _newPassword.text,
-      );
+      await AuthService.changePassword(_currentPassword.text);
+      if (!mounted) return;
       _currentPassword.clear();
-      _newPassword.clear();
-      _confirmPassword.clear();
-      _message('Password changed successfully.');
+      _message('Check your registered email to finish changing your password.');
+    } on LoginException catch (error) {
+      if (mounted) _message(error.message);
     } catch (_) {
-      _message('Unable to change password.');
+      if (mounted) _message('Unable to send the password reset email.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -100,14 +91,17 @@ class _SettingsState extends State<Settings> {
                 ]),
                 const SizedBox(height: 20),
                 _section('Change Password', [
+                  const Text(
+                    'Confirm your current password to receive a link at your registered email. Choose your new password using that link.',
+                  ),
                   _passwordField('Current password', _currentPassword),
-                  _passwordField('New password', _newPassword),
-                  _passwordField('Confirm new password', _confirmPassword),
                   Align(
                     alignment: Alignment.centerRight,
                     child: FilledButton(
                       onPressed: _saving ? null : _changePassword,
-                      child: Text(_saving ? 'Saving...' : 'Change Password'),
+                      child: Text(
+                        _saving ? 'Sending...' : 'Send password reset email',
+                      ),
                     ),
                   ),
                 ]),
@@ -152,8 +146,15 @@ class _SettingsState extends State<Settings> {
   Widget _passwordField(String label, TextEditingController controller) =>
       TextField(
         controller: controller,
-        obscureText: true,
+        obscureText: _hidePassword,
+        enableSuggestions: false,
+        autocorrect: false,
         decoration: InputDecoration(
+          suffixIcon: IconButton(
+            tooltip: _hidePassword ? 'Show password' : 'Hide password',
+            onPressed: () => setState(() => _hidePassword = !_hidePassword),
+            icon: Icon(_hidePassword ? Icons.visibility : Icons.visibility_off),
+          ),
           labelText: label,
           filled: true,
           fillColor: const Color(0xFFFAFBFC),
