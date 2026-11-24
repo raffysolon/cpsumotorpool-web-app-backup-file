@@ -32,6 +32,7 @@ class PasswordResetLimitException implements Exception {
 class AuthService {
   static String get baseUrl => ApiConfig.apiBaseUrl;
   static const _storage = FlutterSecureStorage();
+  static Future<String?>? _accountScopeRequest;
 
   static String _storageKey(String key) => '${ApiConfig.storageNamespace}:$key';
 
@@ -85,6 +86,11 @@ class AuthService {
       key: _storageKey('name'),
       value: data['name'] as String?,
     );
+    await _storage.write(
+      key: _storageKey('account_email'),
+      value: email.trim().toLowerCase(),
+    );
+    _accountScopeRequest = null;
 
     return data;
   }
@@ -99,6 +105,47 @@ class AuthService {
 
   static Future<String?> getName() async {
     return await _storage.read(key: _storageKey('name'));
+  }
+
+  static Future<String?> getNotificationAccountScope() async {
+    final storedEmail = await _storage.read(key: _storageKey('account_email'));
+    if (storedEmail != null && storedEmail.trim().isNotEmpty) {
+      return storedEmail.trim().toLowerCase();
+    }
+
+    final pending = _accountScopeRequest;
+    if (pending != null) return pending;
+    return _accountScopeRequest = _loadNotificationAccountScope();
+  }
+
+  static Future<String?> _loadNotificationAccountScope() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return null;
+
+    final response = await http.get(
+      ApiConfig.apiUri('user'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw const LoginException(
+        'Unable to verify the signed-in account for notification preferences.',
+      );
+    }
+
+    final profile = jsonDecode(response.body);
+    if (profile is! Map || profile['email'] is! String) {
+      throw const FormatException(
+        'The account response did not include email.',
+      );
+    }
+    final email = (profile['email'] as String).trim().toLowerCase();
+    if (email.isEmpty) {
+      throw const FormatException(
+        'The account response did not include email.',
+      );
+    }
+    await _storage.write(key: _storageKey('account_email'), value: email);
+    return email;
   }
 
   /// Check if user is currently logged in
@@ -123,7 +170,9 @@ class AuthService {
       _storage.delete(key: _storageKey('auth_token')),
       _storage.delete(key: _storageKey('role')),
       _storage.delete(key: _storageKey('name')),
+      _storage.delete(key: _storageKey('account_email')),
     ]);
+    _accountScopeRequest = null;
   }
 
   static Future<void> changePassword(String currentPassword) async {

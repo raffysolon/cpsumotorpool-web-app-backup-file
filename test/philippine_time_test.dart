@@ -23,6 +23,20 @@ void main() {
     );
   });
 
+  test(
+    'last seen and UTC heartbeat values remain consistent in the registry',
+    () {
+      final lastSeen = formatPhilippineTimestamp('2026-11-24 20:33:00');
+      final lastHeartbeat = formatPhilippineTimestamp(
+        '2026-11-24 12:33:00',
+        naiveTimestampIsUtc: true,
+      );
+
+      expect(lastSeen, 'Nov 24, 2026 8:33 PM PHT');
+      expect(lastHeartbeat, lastSeen);
+    },
+  );
+
   test('keeps malformed API timestamps visible', () {
     expect(formatPhilippineTimestamp('unknown timestamp'), 'unknown timestamp');
   });

@@ -286,3 +286,102 @@ Arduino sketch files in original folder: `C:\Arduino\CPSU_LTE_GPS_POST_TEST.ino\
 ## 14. Ready-to-paste first prompt for Codex
 
 > You are joining my existing CPSU Motorpool Tracker project. Read `AGENTS.md` and `CPSU_MOTORPOOL_PROJECT_HISTORY.md` carefully before writing code. Do NOT restart or redesign any working part. My Heltec/HAISEN TNT LTE GPS POST to Laravel on Render and Supabase already succeeded with HTTP 201 and GPS row #3177 for vehicle ID 7 / device `VEHICLE-01`. I am now working in the current Flutter web app repo. I need the Map page to show real latest GPS coordinates from the EXISTING authenticated Laravel API instead of hardcoded `activeVehicles` sample markers, with the existing UI unchanged. Inspect the actual repo and auth conventions, identify relevant files and exact API response structure, report what is verified versus assumed, propose a short incremental plan, and wait for my approval before editing any files. Never print or commit private gateway keys or tokens. Do one focused change at a time and run appropriate checks.
+
+## 15. Current milestone status — November 24, 2026 (PHT)
+
+### Repositories and checkpoints
+- Backend: `C:\cpsu-motorpool-backend`, branch `feature/tracker-integration`, pushed checkpoint `0be0421`.
+- Frontend: `C:\cpsumotorpool-web-app-backup-file`, branch `feature/live-gps-map`, pushed checkpoint `ba8f655`.
+- Milestone 2 changes after those checkpoints are intentionally uncommitted pending final manual Chrome verification. Preserve all working-tree changes and the existing untracked `firmware/` directory.
+- The architecture remains Flutter Web → authenticated Laravel API/Sanctum → existing PostgreSQL/Supabase deployment. Flutter's `API_BASE_URL` compile-time override selects the local API for Chrome testing; do not use production URLs in automated test traffic.
+
+### Milestone 2 verified behavior
+- Tracker heartbeats are expected every 30 seconds. Availability is `online` through 60 seconds, `unstable` after 60 through 120 seconds, and `unreachable` after 120 seconds.
+- `last_heartbeat_at` remains the sender UTC timestamp and replay watermark. `last_heartbeat_received_at` remains the server UTC receipt timestamp. Availability is conservatively based on the earlier timestamp so future sender clocks and delayed deliveries do not create extra freshness. Duplicate/older sender timestamps do not update either field.
+- With the timestamp-only protocol, a heartbeat sender clock corrected backward cannot be distinguished safely from a replay until it passes the last accepted sender timestamp. Do not weaken replay protection to work around this; keep clocks synchronized and document this limitation.
+- Movement alerts use fresh, valid consecutive GPS evidence (5 km/h, 50 m displacement, sustained for 30 seconds by default). Approved pre-trip movement alerts the driver and admins; unauthorized movement is high priority for admins; an authorized active trip is normal tracking. Recovered/stale GPS is not treated as live movement.
+- GPS movement does not start or end trips. Approved but unstarted trips display as scheduled/upcoming. Start eligibility remains subject to backend authorization and same-day scheduling, becoming available 10 minutes before departure.
+- GPS freshness, heartbeat availability, and trip lifecycle are separate UI signals. Campus-return reminders remain disabled until verified campus coordinates are provided.
+- Device Registry timestamp storage/serialization and Philippine display are covered by regression tests. Local seeding preserves registration timestamps.
+- The shared admin/driver notification interface now keeps its header/footer fixed, scrolls the message list, wraps long text, and fits desktop, tablet, and mobile. High-priority notifications retain their red indicator and acknowledgment uses the existing API.
+
+### Local isolated testing
+The guarded runner uses `.env.local-testing`, the ignored persistent `database\local-testing.sqlite`, and a `php -n` SQLite-only runtime. It clears inherited PostgreSQL/Supabase/mail overrides and verifies the effective connection before invoking Artisan. Never copy local passwords, application keys, API keys, or tokens into this handoff.
+
+```powershell
+Set-Location C:\cpsu-motorpool-backend
+.\scripts\local-testing.ps1 verify
+.\scripts\local-testing.ps1 scenarios
+.\scripts\local-testing.ps1 serve
+```
+
+```powershell
+Set-Location C:\cpsumotorpool-web-app-backup-file
+flutter run -d chrome --web-hostname localhost --web-port 8080 --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+Use the local-only accounts from `.env.local-testing`. The scenario action seeds stable, synthetic devices/trips/GPS and runs movement/departure monitors twice without deleting notification history or unrelated data. Current fixture schedules remain fixed after first creation; near-departure may later become overdue.
+
+Automated Flutter tests install an `HttpOverrides` guard that fails closed for unmocked HTTP access. Inject `MockClient` for API tests; do not rely on the configured production API default or call Render/Supabase from tests.
+
+### Latest focused validation
+- Backend focused heartbeat, movement, and trip-departure tests: 31 tests, 169 assertions passed.
+- Full isolated backend regression suite: 113 tests, 638 assertions passed.
+- Guarded local SQLite setup verification passed, including rejection of inherited PostgreSQL overrides and a missing local environment file. Local migration check reported no pending migrations.
+- Guarded synthetic monitoring preparation passed. It created the approved-pretrip, unauthorized-movement, active-trip, unreachable-near-departure, overdue-departure, and recovered/stale GPS scenarios; duplicate monitor executions created no extra notifications.
+- Flutter focused notification, notification-priority, network-safety, and Philippine-time tests passed (14 tests). Responsive layout was checked at 1440×900, 900×1024, and 390×844; unmocked HTTP creation was blocked.
+- Flutter Web build succeeded with the local API define. Flutter emitted non-blocking Wasm dry-run notices for existing `flutter_secure_storage_web` imports of `dart:html`/`dart:js_util`; standard Web output was produced.
+- `git diff --check` passed in both repositories. Environment and SQLite files remain Git-ignored. These milestone changes remain uncommitted for manual verification.
+
+### Frontend heartbeat indicators and notification sounds — November 24, 2026
+- On the dashboard and full map, the original 44×44 truck marker now scales as a whole: online uses a subtle double beat, unstable uses a slower pulse, and unreachable stays still. The static status dot retains independent heartbeat colors; the truck circle retains GPS-freshness colors. The marker is centered on its GPS coordinate, remains keyed across refreshes to preserve animation phase, and respects reduced-motion preferences.
+- Device Registry and map status summaries use static, accessible connectivity dots with labels/tooltips. No heart-shaped icons remain.
+- Added locally generated short Web Audio tones and account/environment-scoped preferences (off by default, volume, high-priority-only, and Test sound) to admin and driver Settings. Playback requires the user to test audio in the active browser session, is limited to newly received supported events, deduplicates notification IDs/event keys, suppresses the initial history snapshot, and throttles bursts. It does not sound for ordinary GPS/heartbeat updates or while the app is suspended/closed.
+- Current sound event mappings are limited to verified backend event keys: high-priority unauthorized movement, approved pre-trip movement, tracker unreachable near departure, and overdue departure. The player has categories ready for active-trip connectivity transitions and synchronization success/failure, but those categories intentionally have no event mapping until the backend exposes verified events.
+- The Driver Dashboard trip information stacks on narrow screens. Existing Scheduled/Active/In Progress and trip-action eligibility logic is preserved. Device Registry retains complete device identifiers via its existing tooltip/mobile detail interactions, and the existing responsive notification popup and priority styling remain unchanged.
+- Before the marker correction, the broader affected Flutter suite passed **30 tests** for sound preferences and playback, trip layouts/lifecycle, notifications, network safety, and Philippine timestamps. The marker correction then passed **9 focused tests** for truck double-beat/pulse behavior, stationary unreachable/reduced-motion states, static status dots, independent GPS freshness colors, and animation continuity across refreshes.
+- Dart formatting check passed (18 files; no formatting changes). The final `flutter build web --dart-define=API_BASE_URL=http://127.0.0.1:8000/api` succeeded. Flutter reported non-blocking Wasm dry-run incompatibilities in the existing `flutter_secure_storage_web` dependency; the standard Web bundle built successfully.
+- Manual Chrome verification remains: inspect Device Registry and truck markers on the dashboard/full map at desktop/mobile sizes; verify GPS color and heartbeat dot remain distinct, the truck stays centered, and reduced motion is respected; review trip details and notification priority; enable sounds, press **Test sound** for each account/browser session, then create supported local events. Historical notifications must remain silent. Browser-closed/suspended playback is not supported.
+- No backend, firmware, production API, Render, Supabase, or Vercel changes were made. All milestone changes remain uncommitted pending manual verification.
+
+### Hardware configuration and unresolved physical work
+- Reported tracker hardware: Heltec WiFi LoRa 32 V2, NEO-M8N GPS, OLED, microSD, HAISEN MCore A7672E-FASE LTE carrier/TNT SIM, and a 7.4 V 12,000 mAh battery with XL4015 5 A CC/CV converters.
+- The previously verified LTE UART wiring is Heltec GPIO22 TX → carrier UTX, GPIO13 RX ← carrier URX, common ground; the two boards were separately USB-powered for that test. Do not assume the battery/converter system or simultaneous LTE+SD+LoRa operation has been physically validated.
+- GPIO13 conflicts with the earlier SD chip-select arrangement. Resolve and test pin allocation before combining LTE and SD on one tracker.
+- The Admin Heltec LoRa antenna connection was reported damaged; do not transmit with it until repaired and fitted with a suitable antenna.
+- Do not modify the firmware during Milestone 2. Physical integration, durable offline replay, two-vehicle radio collision behavior, and final battery/runtime testing remain future work.
+- Render scheduler settings have not been changed or verified in production. Do not deploy or alter production services without explicit approval.
+
+## 16. Remaining implementation roadmap
+
+### Milestone 3 — tracker firmware and LTE offline recovery
+- Integrate per-tracker `X-Tracker-Key` authentication.
+- Send independent 30-second heartbeats while stationary and without a GPS fix.
+- Preserve existing GPS, OLED, microSD, and LTE behavior.
+- Add LTE/PPP reconnection after repeated HTTPS failures while continuing GPS capture offline.
+- Persist GPS record IDs, device sequences, pending records, and sequence state; validate SD writes.
+- Validate server acknowledgments and upload pending records as `recovered_lte` after connectivity returns.
+- Prevent duplicate records across retries; never delete unacknowledged data.
+- Preserve legacy SD records and plan safe reconciliation. Test against a safe endpoint before physical integration.
+
+### Milestone 4 — campus-only LoRa and Raspberry Pi gateway
+- Enable LoRa synchronization only after returning to CPSU Kabankalan and verifying actual campus coordinates.
+- Implement receiver discovery/handshake, authenticated radio messages, replay protection, packet acknowledgments, retry/resume, and bounded batches.
+- Persist gateway queue data when internet is unavailable; forward `recovered_lora` only through the authenticated Laravel gateway API.
+- Acknowledge synchronization only after durable server storage; support multiple trackers without uncontrolled collisions and monitor receiver availability.
+- Keep LTE as primary live GPS transport. Repair the damaged Admin Heltec antenna connection before RF transmission.
+
+### Milestone 5 — complete frontend integration
+- Add admin/driver sync status, pending/syncing/completed/failed states, and appropriate manual retry.
+- Distinguish live LTE from recovered LTE/LoRa records; show accurate recorded/received times, progress, and pending counts where supported.
+- Integrate receiver availability and synchronization notifications.
+- Enable campus-return reminders only after coordinates are verified.
+- Keep trip completion independent of synchronization completion; never auto-end a trip.
+- Preserve responsive desktop, tablet, and mobile layouts.
+
+### Milestone 6 — physical hardware and final deployment
+- Validate Heltec WiFi LoRa32 V2, NEO-M8N, microSD, OLED, HAISEN A7672E-FASE, Raspberry Pi gateway, 7.4 V 12,000 mAh battery, and XL4015 converters as a complete system.
+- Verify common-ground and separate positive power rails, first-boot reliability, LTE recovery, long outages, power interruptions, SD persistence, two simultaneous vehicles, and campus-only LoRa sync.
+- Verify the actual Laravel scheduler on Render; review production authentication, public debug endpoints, migrations, and deployment security.
+- Coordinate tracker credential provisioning and legacy-authentication cutover.
+- Prepare backup, deployment, and rollback procedures. Deploy only after explicit approval and successful physical testing.

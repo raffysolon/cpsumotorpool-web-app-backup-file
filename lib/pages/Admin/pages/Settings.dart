@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/notification_sound_settings.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -89,6 +90,10 @@ class _SettingsState extends State<Settings> {
                 _section('Admin Account', [
                   _readOnly('Name', _name),
                   _readOnly('Email', _email),
+                ]),
+                const SizedBox(height: 20),
+                _section('Notification Sounds', [
+                  const NotificationSoundSettings(),
                 ]),
                 const SizedBox(height: 20),
                 _section('Change Password', [

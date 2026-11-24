@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
+import 'package:cpsumotorpooladmin/services/notification_sound_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
+import 'package:cpsumotorpooladmin/widgets/notification_dialog.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // APP SHELL - Shared layout wrapper for all pages
@@ -44,9 +46,23 @@ class AdminNotificationsController {
               'id': item['id'] ?? 0,
               'message': item['message'] ?? 'Notification',
               'created_at': item['created_at'] ?? '',
+              'event_key': item['event_key'],
+              'priority': item['priority'] ?? 'normal',
             },
           )
           .toList();
+
+      try {
+        final accountScope = await AuthService.getNotificationAccountScope();
+        if (accountScope != null) {
+          await NotificationSoundService.instance.observeNotifications(
+            accountScope: accountScope,
+            notifications: items,
+          );
+        }
+      } catch (error) {
+        debugPrint('Admin notification sound processing failed: $error');
+      }
 
       unreadCount.value = count;
       notifications.value = items;
@@ -64,89 +80,14 @@ class AdminNotificationsController {
     }
   }
 
-  String relativeTime(String value) {
-    if (value.isEmpty) return 'Just now';
-    final date = DateTime.tryParse(value)?.toLocal();
-    if (date == null) return 'Just now';
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m';
-    if (diff.inDays < 1) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${date.month}/${date.day}';
-  }
-
   void showNotificationsDialog(BuildContext context) {
     final items = notifications.value;
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Notifications'),
-          content: SizedBox(
-            width: 420,
-            child: items.isEmpty
-                ? const Text('No notifications.')
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final notification = items[index];
-                      final id = (notification['id'] ?? 0) as int;
-                      final message = (notification['message'] ?? '')
-                          .toString();
-                      final relativeTime = this.relativeTime(
-                        (notification['created_at'] ?? '').toString(),
-                      );
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.assignment_outlined,
-                            color: AppColors.primary,
-                            size: 18,
-                          ),
-                        ),
-                        title: Text(
-                          message,
-                          style: AppTypography.bodyStyle(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        trailing: Text(
-                          relativeTime,
-                          style: AppTypography.bodyStyle(
-                            fontSize: 10,
-                            color: AppColors.mutedDark,
-                          ),
-                        ),
-                        onTap: () async {
-                          try {
-                            await markAsReadAndRefresh(id);
-                          } finally {
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
-            ),
-          ],
+      builder: (_) {
+        return NotificationDialog(
+          notifications: items,
+          onAcknowledge: markAsReadAndRefresh,
         );
       },
     );
@@ -468,7 +409,8 @@ class _SidebarState extends State<_Sidebar> {
     _loadTripCounts();
     _refreshNotificationBell(background: true);
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || !_isPageVisible ||
+      if (!mounted ||
+          !_isPageVisible ||
           ModalRoute.of(context)?.isCurrent == false) {
         return;
       }

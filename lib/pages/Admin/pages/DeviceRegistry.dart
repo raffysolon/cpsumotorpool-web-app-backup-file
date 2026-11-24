@@ -9,6 +9,7 @@ import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
 import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/heartbeat_indicator.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart'
     as skeleton;
 import 'package:cpsumotorpooladmin/utils/philippine_time.dart';
@@ -507,7 +508,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
           );
         }
         final width = (constraints.maxWidth - gutter * 2).clamp(
-          1220.0,
+          1760.0,
           double.infinity,
         );
         return SingleChildScrollView(
@@ -530,56 +531,59 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
                       ),
                       child: const Row(
                         children: [
-                          Expanded(
-                            flex: 2,
+                          SizedBox(
+                            width: 300,
                             child: Text(
                               'Device ID',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
+                          SizedBox(width: 14),
+                          SizedBox(
+                            width: 300,
                             child: Text(
                               'Vehicle',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
+                          SizedBox(width: 14),
+                          SizedBox(
+                            width: 190,
                             child: Text(
                               'Plate Number',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                           Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: Text(
                               'Registered At',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                           Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: Text(
                               'Last Seen',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                           Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: Text(
                               'Last Heartbeat',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                           Expanded(
+                            flex: 2,
                             child: Text(
                               'Status',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                           SizedBox(
-                            width: 100,
+                            width: 112,
                             child: Text(
                               'Actions',
                               style: TextStyle(fontWeight: FontWeight.bold),
@@ -601,6 +605,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
 
   Widget _buildDeviceCard(_DeviceData device) {
     return Card(
+      key: ValueKey('device-${device.deviceId}'),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -609,18 +614,30 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    device.deviceId,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  child: Tooltip(
+                    message: device.deviceId,
+                    child: Text(
+                      device.deviceId,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                _availabilityBadge(device.availabilityStatus),
+                HeartbeatIndicator(
+                  status: device.availabilityStatus,
+                  compact: true,
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            Text('Vehicle: ${device.vehicleName ?? "-"}'),
-            Text('Plate: ${device.vehiclePlate ?? "-"}'),
+            Tooltip(
+              message: device.vehicleName ?? '-',
+              child: Text('Vehicle: ${device.vehicleName ?? "-"}'),
+            ),
+            Tooltip(
+              message: device.vehiclePlate ?? '-',
+              child: Text('Plate: ${device.vehiclePlate ?? "-"}'),
+            ),
             const SizedBox(height: 8),
             Text(
               'Registered: ${formatPhilippineTimestamp(device.registeredAt) ?? "-"}',
@@ -658,50 +675,66 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
 
   Widget _buildDeviceRow(_DeviceData device) {
     return Container(
+      key: ValueKey('device-${device.deviceId}'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Row(
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              device.deviceId,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
+          SizedBox(
+            width: 300,
+            child: Tooltip(
+              message: device.deviceId,
+              child: Text(
+                device.deviceId,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 300,
+            child: Tooltip(
+              message: device.vehicleName ?? '-',
+              child: Text(
+                device.vehicleName ?? '-',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 190,
+            child: Tooltip(
+              message: device.vehiclePlate ?? '-',
+              child: Text(
+                device.vehiclePlate ?? '-',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Text(
-              device.vehicleName ?? '-',
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              device.vehiclePlate ?? '-',
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
               formatPhilippineTimestamp(device.registeredAt) ?? '-',
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
               formatPhilippineTimestamp(device.lastSeen) ?? 'Never',
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
               formatPhilippineTimestamp(
                     device.lastHeartbeatAt,
@@ -712,11 +745,14 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             ),
           ),
           Expanded(
-            flex: 1,
-            child: _availabilityBadge(device.availabilityStatus),
+            flex: 2,
+            child: HeartbeatIndicator(
+              status: device.availabilityStatus,
+              compact: true,
+            ),
           ),
           SizedBox(
-            width: 100,
+            width: 112,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -734,34 +770,6 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Color _availabilityColor(TrackerAvailability status) {
-    return switch (status) {
-      TrackerAvailability.online => Colors.green.shade900,
-      TrackerAvailability.unstable => Colors.amber.shade900,
-      TrackerAvailability.unreachable => Colors.grey.shade800,
-    };
-  }
-
-  Widget _availabilityBadge(TrackerAvailability status) {
-    final color = _availabilityColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-        textAlign: TextAlign.center,
       ),
     );
   }
@@ -845,7 +853,9 @@ class _DeviceData {
       vehiclePlate: json['vehicle_plate']?.toString(),
       registeredAt: json['registered_at']?.toString(),
       lastSeen: json['last_seen']?.toString(),
-      lastHeartbeatAt: json['last_heartbeat_at']?.toString(),
+      lastHeartbeatAt:
+          (json['last_heartbeat_received_at'] ?? json['last_heartbeat_at'])
+              ?.toString(),
       availabilityStatus: TrackerAvailability.fromApi(json),
     );
   }

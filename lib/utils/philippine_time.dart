@@ -2,19 +2,14 @@ String? formatPhilippineTimestamp(
   String? value, {
   bool naiveTimestampIsUtc = false,
 }) {
-  if (value == null || value.trim().isEmpty) return null;
+  final local = parsePhilippineTimestamp(
+    value,
+    naiveTimestampIsUtc: naiveTimestampIsUtc,
+  );
+  if (local == null) {
+    return value == null || value.trim().isEmpty ? null : value;
+  }
 
-  final timestamp = value.trim().replaceFirst(' ', 'T');
-  final hasOffset = RegExp(
-    r'(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$',
-  ).hasMatch(timestamp);
-  final normalized = hasOffset
-      ? timestamp
-      : '$timestamp${naiveTimestampIsUtc ? 'Z' : '+08:00'}';
-  final parsed = DateTime.tryParse(normalized);
-  if (parsed == null) return value;
-
-  final local = parsed.toUtc().add(const Duration(hours: 8));
   const months = [
     'Jan',
     'Feb',
@@ -35,4 +30,21 @@ String? formatPhilippineTimestamp(
 
   return '${months[local.month - 1]} ${local.day}, ${local.year} '
       '$hour:${twoDigits(local.minute)} $period PHT';
+}
+
+DateTime? parsePhilippineTimestamp(
+  String? value, {
+  bool naiveTimestampIsUtc = false,
+}) {
+  if (value == null || value.trim().isEmpty) return null;
+
+  final timestamp = value.trim().replaceFirst(' ', 'T');
+  final hasOffset = RegExp(
+    r'(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$',
+  ).hasMatch(timestamp);
+  final normalized = hasOffset
+      ? timestamp
+      : '$timestamp${naiveTimestampIsUtc ? 'Z' : '+08:00'}';
+  final parsed = DateTime.tryParse(normalized);
+  return parsed?.toUtc().add(const Duration(hours: 8));
 }

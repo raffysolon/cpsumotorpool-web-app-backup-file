@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/utils/driver_trip_lifecycle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // === Scheduled trips page: approved trips that have not started ===
@@ -76,29 +77,36 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
 
     try {
       final rawTrips = await TripService.getMyTrips();
-      final nextTrips = rawTrips.where((trip) {
-        // Use stored status first, then computed effective_status
-        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
-        return effectiveStatus == 'scheduled';
-      }).map<Trip>((trip) {
-        final vehicle = trip['vehicle'] is Map
-          ? Map<String, dynamic>.from(trip['vehicle'] as Map)
-          : const <String, dynamic>{};
-        final vehicleLabel = _vehicleLabel(vehicle);
-        final scheduled = trip['scheduled_departure']?.toString();
-        final route = '${trip['origin'] ?? ''} to ${trip['destination'] ?? ''}'
-            .trim();
-        return Trip(
-          id: (trip['id'] ?? 0).toString(),
-          route: route.isEmpty ? 'Trip request' : route,
-          status: 'Scheduled',
-          vehicle: vehicleLabel,
-          departureTime: _formatDeparture(scheduled),
-          expectedArrival: '—',
-          scheduledDeparture: DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
-        );
-      }).toList();
+      final nextTrips = rawTrips
+          .where((trip) {
+            return DriverTripLifecycle.isScheduled(trip) &&
+                !DriverTripLifecycle.hasActuallyStarted(trip);
+          })
+          .map<Trip>((trip) {
+            final vehicle = trip['vehicle'] is Map
+                ? Map<String, dynamic>.from(trip['vehicle'] as Map)
+                : const <String, dynamic>{};
+            final vehicleLabel = _vehicleLabel(vehicle);
+            final scheduled = trip['scheduled_departure']?.toString();
+            final route =
+                '${trip['origin'] ?? ''} to ${trip['destination'] ?? ''}'
+                    .trim();
+            return Trip(
+              id: (trip['id'] ?? 0).toString(),
+              route: route.isEmpty ? 'Trip request' : route,
+              status: 'Scheduled',
+              vehicle: vehicleLabel,
+              departureTime: _formatDeparture(scheduled),
+              expectedArrival: '—',
+              scheduledDeparture:
+                  DateTime.tryParse(scheduled ?? '') ?? DateTime.now(),
+              canStart: DriverTripLifecycle.canStart(trip),
+              startDisabledReason: DriverTripLifecycle.startDisabledReason(
+                trip,
+              ),
+            );
+          })
+          .toList();
 
       if (!mounted) return;
       if (!background || _hasTripsChanged(nextTrips)) {
@@ -139,7 +147,9 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
           current.status != next.status ||
           current.vehicle != next.vehicle ||
           current.departureTime != next.departureTime ||
-          current.scheduledDeparture != next.scheduledDeparture) {
+          current.scheduledDeparture != next.scheduledDeparture ||
+          current.canStart != next.canStart ||
+          current.startDisabledReason != next.startDisabledReason) {
         return true;
       }
     }
@@ -239,7 +249,8 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     itemCount: trips.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) => _buildTripCard(trips[index]),
+                    itemBuilder: (context, index) =>
+                        _buildTripCard(trips[index]),
                   ),
           ),
         ),
@@ -291,12 +302,7 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
     final departingSoon = trip.scheduledDeparture.isBefore(
       DateTime.now().add(const Duration(hours: 24)),
     );
-    final now = DateTime.now();
-    final sameDate =
-        trip.scheduledDeparture.year == now.year &&
-        trip.scheduledDeparture.month == now.month &&
-        trip.scheduledDeparture.day == now.day;
-    final canStart = sameDate && !now.isBefore(trip.scheduledDeparture);
+    final canStart = trip.canStart;
 
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
@@ -367,7 +373,9 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
                 label: const Text('Start Trip'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: canStart ? _green : Colors.grey.shade300,
-                  foregroundColor: Colors.black,
+                  foregroundColor: canStart
+                      ? Colors.white
+                      : Colors.grey.shade700,
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -396,7 +404,7 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
                 child: TextButton.icon(
                   onPressed: () => _printTripTicket(trip.id),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
                       vertical: 12,
@@ -418,6 +426,18 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
               ),
             ],
           ),
+          if (!canStart)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  trip.startDisabledReason,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -650,6 +670,8 @@ class Trip {
     required this.departureTime,
     required this.expectedArrival,
     required this.scheduledDeparture,
+    required this.canStart,
+    required this.startDisabledReason,
   });
 
   final String id;
@@ -659,4 +681,6 @@ class Trip {
   final String departureTime;
   final String expectedArrival;
   final DateTime scheduledDeparture;
+  final bool canStart;
+  final String startDisabledReason;
 }

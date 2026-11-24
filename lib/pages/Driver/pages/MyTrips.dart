@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/pdf_opener.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/utils/driver_trip_lifecycle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
@@ -27,6 +28,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
     'All',
     'Pending',
     'Approved',
+    'Scheduled',
     'Active',
     'Denied',
   ];
@@ -95,17 +97,22 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
       final nextTrips = rawTrips
           .where((trip) {
             // Check stored status first, then computed effective_status
-            final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-            final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
-            
+            final storedStatus = (trip['status'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            final effectiveStatus = (trip['effective_status'] ?? storedStatus)
+                .toString()
+                .trim()
+                .toLowerCase();
+
             // Show all trips except completed ones
             // Include pending, approved, scheduled, active, and denied
             return effectiveStatus != 'completed';
           })
           .map<Trip>((trip) {
-            // Use stored status for display, not effective_status
             final rawStatus = (trip['status'] ?? 'pending').toString();
-            final status = _normalizeStatus(rawStatus);
+            final status = DriverTripLifecycle.displayStatus(trip);
             final vehicle = trip['vehicle'] is Map
                 ? Map<String, dynamic>.from(trip['vehicle'] as Map)
                 : const <String, dynamic>{};
@@ -116,12 +123,10 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
               route: '${trip['origin'] ?? ''} to ${trip['destination'] ?? ''}'
                   .trim(),
               status: status,
+              isApproved: rawStatus.trim().toLowerCase() == 'approved',
               vehicle: vehicleLabel,
               departureTime: _formatDeparture(scheduledDeparture),
-              scheduledBadge: _scheduledBadgeLabel(
-                status,
-                scheduledDeparture,
-              ),
+              scheduledBadge: _scheduledBadgeLabel(status, scheduledDeparture),
             );
           })
           .toList();
@@ -166,33 +171,12 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
           current.status != next.status ||
           current.vehicle != next.vehicle ||
           current.departureTime != next.departureTime ||
-          current.scheduledBadge != next.scheduledBadge) {
+          current.scheduledBadge != next.scheduledBadge ||
+          current.isApproved != next.isApproved) {
         return true;
       }
     }
     return false;
-  }
-
-  String _normalizeStatus(String raw) {
-    final value = raw.trim().toLowerCase();
-    switch (value) {
-      case 'pending':
-        return 'Pending';
-      case 'approved':
-        return 'Approved';
-      case 'scheduled':
-        return 'Scheduled';
-      case 'active':
-        return 'Active';
-      case 'completed':
-        return 'Completed';
-      case 'denied':
-        return 'Denied';
-      default:
-        return value.isEmpty
-            ? 'Pending'
-            : value[0].toUpperCase() + value.substring(1);
-    }
   }
 
   String? _scheduledBadgeLabel(String status, String? scheduledDeparture) {
@@ -262,6 +246,16 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
 
   List<Trip> get _filteredTrips {
     if (_selectedFilter == 'All') return _trips;
+    if (_selectedFilter == 'Approved') {
+      return _trips.where((trip) => trip.isApproved).toList();
+    }
+    if (_selectedFilter == 'Active') {
+      return _trips
+          .where(
+            (trip) => trip.status == 'In Progress' || trip.status == 'Active',
+          )
+          .toList();
+    }
     return _trips.where((trip) => trip.status == _selectedFilter).toList();
   }
 
@@ -314,31 +308,31 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     child: SkeletonWidgetsWeb.tripList(itemCount: 4),
                   )
                 : Column(
-                  children: [
-                    _buildFilterTabs(),
-                    Expanded(
-                      child: _loadError != null
-                          ? _buildLoadError()
-                          : _filteredTrips.isEmpty
-                          ? _buildEmptyState()
-                          : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                20,
-                                20,
-                                32,
+                    children: [
+                      _buildFilterTabs(),
+                      Expanded(
+                        child: _loadError != null
+                            ? _buildLoadError()
+                            : _filteredTrips.isEmpty
+                            ? _buildEmptyState()
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  20,
+                                  20,
+                                  32,
+                                ),
+                                itemCount: _filteredTrips.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 14),
+                                itemBuilder: (context, index) {
+                                  return _buildTripCard(_filteredTrips[index]);
+                                },
                               ),
-                              itemCount: _filteredTrips.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: 14),
-                              itemBuilder: (context, index) {
-                                return _buildTripCard(_filteredTrips[index]);
-                              },
-                            ),
-                    ),
-                  ],
-                    ),
+                      ),
+                    ],
                   ),
+          ),
         ),
         if (_isOpeningTicket)
           Positioned.fill(
@@ -439,10 +433,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
             style: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          TextButton(
-            onPressed: _loadTrips,
-            child: const Text('Retry'),
-          ),
+          TextButton(onPressed: _loadTrips, child: const Text('Retry')),
         ],
       ),
     );
@@ -515,7 +506,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                   TextButton(
                     onPressed: () => _navigateToTripSummary(trip.id),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     child: const Text(
@@ -526,6 +517,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                   if (trip.status == 'Approved' ||
                       trip.status == 'Scheduled' ||
                       trip.status == 'Active' ||
+                      trip.status == 'In Progress' ||
                       trip.status == 'Completed') ...[
                     DecoratedBox(
                       decoration: BoxDecoration(
@@ -761,6 +753,7 @@ class Trip {
     required this.id,
     required this.route,
     required this.status,
+    required this.isApproved,
     required this.vehicle,
     required this.departureTime,
     this.scheduledBadge,
@@ -769,6 +762,7 @@ class Trip {
   final String id;
   final String route;
   final String status;
+  final bool isApproved;
   final String vehicle;
   final String departureTime;
   final String? scheduledBadge;

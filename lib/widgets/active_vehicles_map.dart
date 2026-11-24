@@ -7,6 +7,7 @@ import '../data/active_vehicles.dart';
 import '../models/tracker_availability.dart';
 import '../services/gps_service.dart';
 import 'app_shell.dart';
+import 'heartbeat_indicator.dart';
 
 // === Vehicle with its latest GPS location ===
 
@@ -280,10 +281,11 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
               markers: [
                 for (final item in _trackedVehicles)
                   Marker(
+                    key: ValueKey('vehicle-marker-${item.vehicle.deviceId}'),
                     point: item.location.position,
                     width: 44,
                     height: 44,
-                    alignment: Alignment.topCenter,
+                    alignment: Alignment.center,
                     child: Tooltip(
                       triggerMode: TooltipTriggerMode.tap,
                       message:
@@ -294,10 +296,13 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                           'Longitude: ${item.location.longitude.toStringAsFixed(6)}\n'
                           'Satellites: ${item.location.satellites ?? 'Unknown'}\n'
                           'Last received: ${_formatRecordedAt(item.location.recordedAt)}\n'
-                          'Tracker heartbeat: ${item.vehicle.availabilityStatus.label}\n'
+                          'Heartbeat availability: ${item.vehicle.availabilityStatus.label}\n'
                           'GPS freshness: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}\n'
                           '${_tripStatus(item.location)}',
-                      child: _VehiclePin(
+                      child: TrackerVehicleMarker(
+                        key: ValueKey(
+                          'vehicle-marker-pin-${item.vehicle.deviceId}',
+                        ),
                         isRecent: item.location.isRecent,
                         availabilityStatus: item.vehicle.availabilityStatus,
                       ),
@@ -420,14 +425,23 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                               color: AppColors.mutedDark,
                             ),
                           ),
-                        Text(
-                          'Mapped tracker heartbeat: $onlineCount online, '
-                          '$unstableCount unstable, '
-                          '$unreachableCount unreachable',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.mutedDark,
-                          ),
+                        Wrap(
+                          spacing: 9,
+                          runSpacing: 4,
+                          children: [
+                            _heartbeatCount(
+                              TrackerAvailability.online,
+                              onlineCount,
+                            ),
+                            _heartbeatCount(
+                              TrackerAvailability.unstable,
+                              unstableCount,
+                            ),
+                            _heartbeatCount(
+                              TrackerAvailability.unreachable,
+                              unreachableCount,
+                            ),
+                          ],
                         ),
                         if (_lastSuccessfulRefresh != null)
                           Text(
@@ -510,15 +524,115 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
   }
 }
 
+Widget _heartbeatCount(TrackerAvailability status, int count) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      HeartbeatIndicator(status: status, compact: true, iconSize: 9),
+      const SizedBox(width: 4),
+      Text(
+        '$count',
+        style: const TextStyle(
+          fontSize: 11,
+          color: AppColors.mutedDark,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ],
+  );
+}
+
 // === Vehicle marker ===
 
-class _VehiclePin extends StatelessWidget {
-  const _VehiclePin({required this.isRecent, required this.availabilityStatus});
+class TrackerVehicleMarker extends StatefulWidget {
+  const TrackerVehicleMarker({
+    super.key,
+    required this.isRecent,
+    required this.availabilityStatus,
+  });
 
   final bool isRecent;
   final TrackerAvailability availabilityStatus;
 
-  Color get _availabilityColor => switch (availabilityStatus) {
+  @override
+  State<TrackerVehicleMarker> createState() => _TrackerVehicleMarkerState();
+}
+
+class _TrackerVehicleMarkerState extends State<TrackerVehicleMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  Animation<double> _scale = const AlwaysStoppedAnimation(1);
+  TrackerAvailability? _configuredStatus;
+  bool? _configuredReduceMotion;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _configureAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackerVehicleMarker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.availabilityStatus != widget.availabilityStatus) {
+      _configureAnimation();
+    }
+  }
+
+  void _configureAnimation() {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (_configuredStatus == widget.availabilityStatus &&
+        _configuredReduceMotion == reduceMotion) {
+      return;
+    }
+    _configuredStatus = widget.availabilityStatus;
+    _configuredReduceMotion = reduceMotion;
+
+    if (reduceMotion ||
+        widget.availabilityStatus == TrackerAvailability.unreachable) {
+      _controller
+        ..stop()
+        ..value = 0;
+      _scale = const AlwaysStoppedAnimation(1);
+      return;
+    }
+
+    final online = widget.availabilityStatus == TrackerAvailability.online;
+    _controller.duration = online
+        ? const Duration(milliseconds: 1500)
+        : const Duration(milliseconds: 2400);
+    _scale = TweenSequence<double>(
+      online
+          ? [
+              _beat(1, 1.1, 8),
+              _beat(1.1, 1, 8),
+              _beat(1, 1, 4),
+              _beat(1, 1.06, 8),
+              _beat(1.06, 1, 8),
+              _beat(1, 1, 64),
+            ]
+          : [_beat(1, 1.06, 20), _beat(1.06, 1, 20), _beat(1, 1, 60)],
+    ).animate(_controller);
+    _controller.repeat();
+  }
+
+  TweenSequenceItem<double> _beat(double begin, double end, double weight) {
+    return TweenSequenceItem<double>(
+      tween: Tween<double>(
+        begin: begin,
+        end: end,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
+      weight: weight,
+    );
+  }
+
+  Color get _availabilityColor => switch (widget.availabilityStatus) {
     TrackerAvailability.online => Colors.green.shade800,
     TrackerAvailability.unstable => Colors.amber.shade900,
     TrackerAvailability.unreachable => Colors.grey.shade800,
@@ -526,44 +640,64 @@ class _VehiclePin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: isRecent ? AppColors.primary : Colors.grey,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 6,
-                offset: Offset(0, 2),
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Center(
+            child: ScaleTransition(
+              key: const Key('vehicle-marker-animation'),
+              scale: _scale,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.isRecent ? AppColors.primary : Colors.grey,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.local_shipping_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
               ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.local_shipping_rounded,
-              color: Colors.white,
-              size: 18,
             ),
           ),
-        ),
-        Positioned(
-          top: 0,
-          right: 0,
-          child: Container(
-            width: 13,
-            height: 13,
-            decoration: BoxDecoration(
-              color: _availabilityColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              key: const Key('vehicle-connectivity-dot'),
+              width: 13,
+              height: 13,
+              decoration: BoxDecoration(
+                color: _availabilityColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
 

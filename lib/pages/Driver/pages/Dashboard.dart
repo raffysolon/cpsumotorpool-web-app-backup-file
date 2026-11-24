@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/notification_service.dart';
+import 'package:cpsumotorpooladmin/services/notification_sound_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/utils/driver_trip_lifecycle.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
+import 'package:cpsumotorpooladmin/widgets/driver_trip_details.dart';
+import 'package:cpsumotorpooladmin/widgets/notification_dialog.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
 
 import 'History.dart';
@@ -109,20 +113,19 @@ class _DriverDashboardState extends State<DriverDashboard>
     try {
       final trips = await TripService.getMyTrips();
       Map<String, dynamic>? nextActiveTrip;
+      Map<String, dynamic>? nextScheduledTrip;
       for (final trip in trips.whereType<Map>()) {
-        // Use stored status, then fall back to effective_status
-        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
-        
-        if (effectiveStatus == 'active') {
-          nextActiveTrip = Map<String, dynamic>.from(trip);
+        final candidate = Map<String, dynamic>.from(trip);
+        if (DriverTripLifecycle.hasActuallyStarted(candidate)) {
+          nextActiveTrip = candidate;
           break;
         }
-        // Show scheduled trips if no active trip found
-        if (effectiveStatus == 'scheduled' && nextActiveTrip == null) {
-          nextActiveTrip = Map<String, dynamic>.from(trip);
+        if (DriverTripLifecycle.isScheduled(candidate) &&
+            nextScheduledTrip == null) {
+          nextScheduledTrip = candidate;
         }
       }
+      nextActiveTrip ??= nextScheduledTrip;
 
       if (!mounted) return;
       final changed = _activeTrip == null && nextActiveTrip == null
@@ -152,32 +155,52 @@ class _DriverDashboardState extends State<DriverDashboard>
   Future<void> _loadTripCounts({bool background = false}) async {
     try {
       final rawTrips = await TripService.getMyTrips();
-      
+
       // Count trips for "My Trips" - everything except active and completed
       final visibleMyTrips = rawTrips.where((trip) {
-        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        final storedStatus = (trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus)
+            .toString()
+            .trim()
+            .toLowerCase();
         return effectiveStatus != 'active' && effectiveStatus != 'completed';
       }).toList();
-      
+
       // Count completed trips for history
       final completedTrips = rawTrips.where((trip) {
-        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        final storedStatus = (trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus)
+            .toString()
+            .trim()
+            .toLowerCase();
         return effectiveStatus == 'completed';
       }).toList();
-      
+
       // Build notification list from approved/scheduled/active trips
-      final approvedNotifications = rawTrips.where((trip) {
-            final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-            final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+      final approvedNotifications = rawTrips
+          .where((trip) {
+            final storedStatus = (trip['status'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            final effectiveStatus = (trip['effective_status'] ?? storedStatus)
+                .toString()
+                .trim()
+                .toLowerCase();
             return storedStatus == 'approved' ||
                 effectiveStatus == 'scheduled' ||
                 effectiveStatus == 'active';
           })
           .map<Map<String, String>>((trip) {
             final origin = (trip['origin'] ?? 'Origin').toString();
-            final destination = (trip['destination'] ?? 'Destination').toString();
+            final destination = (trip['destination'] ?? 'Destination')
+                .toString();
             final route = '$origin to $destination';
             final storedStatus = (trip['status'] ?? 'approved').toString();
             return {
@@ -187,13 +210,19 @@ class _DriverDashboardState extends State<DriverDashboard>
             };
           })
           .toList();
-          
+
       if (!mounted) return;
 
       final nextMyTripsCount = visibleMyTrips.length;
       final nextScheduledTripsCount = rawTrips.whereType<Map>().where((trip) {
-        final storedStatus = (trip['status'] ?? '').toString().trim().toLowerCase();
-        final effectiveStatus = (trip['effective_status'] ?? storedStatus).toString().trim().toLowerCase();
+        final storedStatus = (trip['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        final effectiveStatus = (trip['effective_status'] ?? storedStatus)
+            .toString()
+            .trim()
+            .toLowerCase();
         return effectiveStatus == 'scheduled';
       }).length;
       final nextHistoryTripsCount = completedTrips.length;
@@ -239,9 +268,23 @@ class _DriverDashboardState extends State<DriverDashboard>
               'id': item['id'] ?? 0,
               'message': item['message'] ?? 'Notification',
               'created_at': item['created_at'] ?? '',
+              'event_key': item['event_key'],
+              'priority': item['priority'] ?? 'normal',
             },
           )
           .toList();
+
+      try {
+        final accountScope = await AuthService.getNotificationAccountScope();
+        if (accountScope != null) {
+          await NotificationSoundService.instance.observeNotifications(
+            accountScope: accountScope,
+            notifications: notifications,
+          );
+        }
+      } catch (error) {
+        debugPrint('Driver notification sound processing failed: $error');
+      }
 
       if (!mounted) return;
 
@@ -267,86 +310,16 @@ class _DriverDashboardState extends State<DriverDashboard>
   void _showNotificationsDialog() {
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Notifications'),
-          content: SizedBox(
-            width: 420,
-            child: _notifications.isEmpty
-                ? const Text('No notifications.')
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _notifications.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final notification = _notifications[index];
-                      final id = (notification['id'] ?? 0) as int;
-                      final message = (notification['message'] ?? '')
-                          .toString();
-                      final relativeTime = _relativeTime(
-                        (notification['created_at'] ?? '').toString(),
-                      );
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: _greenSoft,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle_outline,
-                            color: _green,
-                            size: 18,
-                          ),
-                        ),
-                        title: Text(
-                          message,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        trailing: Text(
-                          relativeTime,
-                          style: const TextStyle(fontSize: 10, color: _muted),
-                        ),
-                        onTap: () async {
-                          try {
-                            await NotificationService.markAsRead(id);
-                            if (mounted) {
-                              await _loadNotifications();
-                            }
-                          } finally {
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
-            ),
-          ],
+      builder: (_) {
+        return NotificationDialog(
+          notifications: _notifications,
+          onAcknowledge: (id) async {
+            await NotificationService.markAsRead(id);
+            if (mounted) await _loadNotifications();
+          },
         );
       },
     );
-  }
-
-  String _relativeTime(String value) {
-    if (value.isEmpty) return 'Just now';
-    final date = DateTime.tryParse(value)?.toLocal();
-    if (date == null) return 'Just now';
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m';
-    if (diff.inDays < 1) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${date.month}/${date.day}';
   }
 
   String _formatDeparture(String? value) {
@@ -396,9 +369,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   }
 
   String _activeActionLabel(Map<String, dynamic> trip) {
-    final tripStatus = '${trip['status'] ?? trip['effective_status'] ?? ''}'
-      .trim()
-      .toLowerCase();
+    if (!DriverTripLifecycle.hasActuallyStarted(trip)) return 'Start Trip';
     final movements =
         (trip['movements'] is List ? trip['movements'] as List : const [])
             .whereType<Map>()
@@ -411,14 +382,8 @@ class _DriverDashboardState extends State<DriverDashboard>
         .toList();
     final outbound = outboundMatches.isEmpty ? null : outboundMatches.first;
     final returnMovement = returnMatches.isEmpty ? null : returnMatches.first;
-    if (tripStatus == 'active' && '${outbound?['status'] ?? ''}' != 'completed') {
-      return 'End Trip';
-    }
     if ('${returnMovement?['status'] ?? ''}' == 'active') {
       return 'End Return Trip';
-    }
-    if ('${outbound?['status'] ?? ''}' == 'scheduled') {
-      return 'Start Trip';
     }
     if ('${outbound?['status'] ?? ''}' == 'active') {
       return 'End Trip';
@@ -426,7 +391,7 @@ class _DriverDashboardState extends State<DriverDashboard>
     if ('${outbound?['status'] ?? ''}' == 'completed') {
       return 'Start Return Trip';
     }
-    return 'Start Trip';
+    return 'End Trip';
   }
 
   Widget _buildCurrentActiveTripCard() {
@@ -441,14 +406,14 @@ class _DriverDashboardState extends State<DriverDashboard>
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
           borderRadius: 18,
           child: const Center(
-          child: Text(
-            'No active trip right now',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+            child: Text(
+              'No active trip right now',
+              style: TextStyle(
+                color: _muted,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
           ),
         ),
       );
@@ -456,11 +421,14 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     final trip = _activeTrip!;
     final vehicle = trip['vehicle'] is Map
-      ? Map<String, dynamic>.from(trip['vehicle'] as Map)
-      : const <String, dynamic>{};
+        ? Map<String, dynamic>.from(trip['vehicle'] as Map)
+        : const <String, dynamic>{};
     final vehicleLabel = _vehicleLabel(vehicle);
     final route = _routeText(trip);
     final actionLabel = _activeActionLabel(trip);
+    final tripStarted = DriverTripLifecycle.hasActuallyStarted(trip);
+    final canStart = DriverTripLifecycle.canStart(trip);
+    final startDisabledReason = DriverTripLifecycle.startDisabledReason(trip);
 
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
@@ -470,8 +438,8 @@ class _DriverDashboardState extends State<DriverDashboard>
         children: [
           Row(
             children: [
-              const Text(
-                'Active Trip',
+              Text(
+                tripStarted ? 'Active Trip' : 'Upcoming Trip',
                 style: TextStyle(
                   color: _ink,
                   fontSize: 17,
@@ -482,13 +450,13 @@ class _DriverDashboardState extends State<DriverDashboard>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _greenSoft,
+                  color: tripStarted ? _greenSoft : Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'ACTIVE',
+                child: Text(
+                  tripStarted ? 'ACTIVE' : 'SCHEDULED',
                   style: TextStyle(
-                    color: _greenDark,
+                    color: tripStarted ? _greenDark : Colors.orange.shade900,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
@@ -508,32 +476,44 @@ class _DriverDashboardState extends State<DriverDashboard>
           const SizedBox(height: 19),
           const Divider(color: _line, height: 1),
           const SizedBox(height: 16),
-          _buildTripDetails(
+          DriverTripDetails(
             vehicle: vehicleLabel,
             departure: _formatDeparture(
               trip['scheduled_departure']?.toString(),
             ),
-            status: 'In Progress',
+            status: tripStarted ? 'In Progress' : 'Scheduled',
           ),
           const SizedBox(height: 22),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: _showEndTripDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _green,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 13,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: tripStarted || canStart ? _showEndTripDialog : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _green,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.grey.shade700,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 13,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                child: Text(actionLabel),
               ),
-              child: Text(actionLabel),
-            ),
+              if (!tripStarted && !canStart) ...[
+                const SizedBox(height: 8),
+                Text(
+                  startDisabledReason,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -666,10 +646,7 @@ class _DriverDashboardState extends State<DriverDashboard>
       padding: const EdgeInsets.all(2),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.asset(
-          'assets/images/cpsu logo.png',
-          fit: BoxFit.contain,
-        ),
+        child: Image.asset('assets/images/cpsu logo.png', fit: BoxFit.contain),
       ),
     );
   }
@@ -789,8 +766,8 @@ class _DriverDashboardState extends State<DriverDashboard>
           color: _green,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-              BoxShadow(
-                color: AppColors.brandDeep.withValues(alpha: 0.18),
+            BoxShadow(
+              color: AppColors.brandDeep.withValues(alpha: 0.18),
               blurRadius: 15,
               offset: Offset(0, 7),
             ),
@@ -896,61 +873,15 @@ class _DriverDashboardState extends State<DriverDashboard>
           : actionLabel == 'End Return Trip'
           ? 'Return trip ended. Arrival time was recorded automatically.'
           : 'Trip ended. Arrival time was recorded automatically.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Unable to end trip: $error')));
     }
-  }
-
-  Widget _buildTripDetails({
-    required String vehicle,
-    required String departure,
-    required String status,
-    bool narrow = false,
-  }) {
-    final details = [
-      _buildTripDetail('VEHICLE', vehicle, expanded: !narrow),
-      _buildTripDetail('DEPARTURE', departure, expanded: !narrow),
-      _buildTripDetail('STATUS', status, expanded: !narrow),
-    ];
-    return narrow
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: details,
-          )
-        : Row(children: details);
-  }
-
-  Widget _buildTripDetail(String label, String value, {bool expanded = true}) {
-    final detail = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: _muted,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: .6,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            color: _greenDark,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-    return expanded ? Expanded(child: detail) : detail;
   }
 
   Widget _buildQuickActions({required bool narrow}) {
