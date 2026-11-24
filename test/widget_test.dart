@@ -1,5 +1,8 @@
 // ignore_for_file: implementation_imports
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,4 +81,51 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  for (final role in ['admin', 'driver']) {
+    testWidgets('$role returns to Login when reset revokes session', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({
+        'auth_token': '$role-session',
+        'role': role,
+      });
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/login';
+      addTearDown(
+        tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+      );
+      var revoked = false;
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(const MyApp());
+          await tester.pumpAndSettle();
+          final navigator = tester.state<NavigatorState>(
+            find.byType(Navigator),
+          );
+          navigator.pushNamedAndRemoveUntil(
+            role == 'admin' ? '/settings' : '/driver-settings',
+            (_) => false,
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(LoginPage), findsNothing);
+          revoked = true;
+          await tester.pump(const Duration(seconds: 30));
+          await tester.pumpAndSettle();
+          expect(find.byType(LoginPage), findsOneWidget);
+          AppNotification.dismiss();
+          await tester.pumpWidget(const SizedBox());
+        },
+        () => MockClient((request) async {
+          if (request.url.path.endsWith('/user')) {
+            return revoked
+                ? http.Response('{}', 401)
+                : http.Response(
+                    '{"role":"$role","name":"Test","email":"test@example.com"}',
+                    200,
+                  );
+          }
+          return http.Response('{"data":[],"unread_count":0}', 200);
+        }),
+      );
+    });
+  }
 }

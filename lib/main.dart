@@ -1,6 +1,7 @@
 import 'pages/Admin/pages/AdminCreateTripTicket.dart'
     show AdminCreateTripTicketPage;
 import 'dart:async';
+import 'services/session_monitor.dart';
 
 import 'package:flutter/material.dart';
 
@@ -41,6 +42,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Timer? _activityTimer;
+  Timer? _sessionTimer;
+  final _sessionMonitor = SessionMonitor();
+  bool _appVisible = true;
   static const Duration _idleTimeout = Duration(minutes: 5);
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -49,13 +53,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _resetActivityTimer();
+    _sessionTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_appVisible) _checkSession();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSession());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _activityTimer?.cancel();
+    _sessionTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkSession() async {
+    if (!mounted) return;
+    final expired = await _sessionMonitor.check();
+    if (!mounted || !expired) return;
+    AppNotification.dismiss();
+    _navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
   }
 
   void _resetActivityTimer() {
@@ -77,7 +94,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    _appVisible = state == AppLifecycleState.resumed;
+    if (_appVisible) {
+      _checkSession();
       _markActivity();
     }
   }
