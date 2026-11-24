@@ -1,9 +1,11 @@
 import 'api_reads.dart';
 import 'dart:convert';
 
+import 'package:cpsumotorpooladmin/models/tracker_availability.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
+import 'api_config.dart';
 
 /// Authentication changes must also clear locations already displayed by a map.
 class GpsAccessException implements Exception {
@@ -126,12 +128,14 @@ class TrackedVehicle {
     required this.deviceId,
     required this.plate,
     required this.name,
+    this.availabilityStatus = TrackerAvailability.unreachable,
   });
 
   final int vehicleId;
   final String deviceId;
   final String plate;
   final String name;
+  final TrackerAvailability availabilityStatus;
 
   factory TrackedVehicle.fromJson(Map<String, dynamic> json) {
     return TrackedVehicle(
@@ -139,17 +143,16 @@ class TrackedVehicle {
       deviceId: json['device_id'].toString(),
       plate: json['vehicle_plate']?.toString() ?? 'Unknown plate',
       name: json['vehicle_name']?.toString() ?? 'Unknown vehicle',
+      availabilityStatus: TrackerAvailability.fromApi(json),
     );
   }
 }
 
 /// Handles GPS retrieval for the admin dashboard.
 class GpsService {
-  static const String baseUrl = AuthService.baseUrl;
-
   // === Cache settings ===
 
-  static const Duration _registryCacheDuration = Duration(seconds: 60);
+  static const Duration _registryCacheDuration = Duration(seconds: 10);
 
   static const Duration _locationCacheDuration = Duration(seconds: 5);
 
@@ -354,7 +357,7 @@ class GpsService {
     Map<String, String> headers,
     int generation,
   ) async {
-    final uri = Uri.parse('$baseUrl/gps/vehicles/$vehicleId/latest');
+    final uri = ApiConfig.apiUri('gps/vehicles/$vehicleId/latest');
 
     final response = await ApiReads.get(
       uri,

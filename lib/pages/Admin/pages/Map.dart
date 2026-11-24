@@ -23,7 +23,8 @@ class MapPage extends StatelessWidget {
                   children: [
                     const PageHeader(
                       title: 'Map',
-                      subtitle: 'Vehicle locations and GPS status',
+                      subtitle:
+                          'Vehicle locations, GPS freshness, and tracker heartbeat status',
                     ),
                     const SizedBox(height: 12),
                     Expanded(
@@ -46,23 +47,17 @@ class MapPage extends StatelessWidget {
                           label: 'Recent GPS',
                         ),
                         _MapLegend(color: Colors.grey, label: 'Outdated GPS'),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.question_mark_rounded,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Online, no scheduled trip',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.mutedDark,
-                              ),
-                            ),
-                          ],
+                        _MapLegend(
+                          color: Colors.green,
+                          label: 'Tracker online',
+                        ),
+                        _MapLegend(
+                          color: Colors.amber,
+                          label: 'Tracker unstable',
+                        ),
+                        _MapLegend(
+                          color: Color(0xFF424242),
+                          label: 'Tracker unreachable',
                         ),
                         Text(
                           'Refresh every 5 seconds',

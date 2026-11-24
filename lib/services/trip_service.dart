@@ -4,9 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'api_config.dart';
 
 class TripService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -31,11 +32,11 @@ class TripService {
     if (response.statusCode == 401) {
       throw Exception('Your session has expired. Please log in again.');
     }
-    
+
     if (response.statusCode == 403) {
       throw Exception('You do not have permission to perform this action.');
     }
-    
+
     if (response.statusCode == 429) {
       throw Exception('Too many requests. Please wait a moment and try again.');
     }
@@ -46,17 +47,18 @@ class TripService {
   }
 
   static Future<List<Map<String, dynamic>>> getMyTrips({String? status}) async {
-    final uri = Uri.parse(
-      status == null || status.isEmpty
-          ? '$baseUrl/my-trips'
-          : '$baseUrl/my-trips?status=$status',
+    final uri = ApiConfig.apiUri(
+      'my-trips',
+      queryParameters: status == null || status.isEmpty
+          ? null
+          : {'status': status},
     );
 
     debugPrint('TripService.getMyTrips(): GET $uri');
     final response = await ApiReads.get(uri, headers: await _headers());
     debugPrint('TripService.getMyTrips(): status=${response.statusCode}');
     debugPrint('TripService.getMyTrips(): body=${response.body}');
-    
+
     final result = await _parseResponse(response);
     final records = result is List
         ? result
@@ -84,7 +86,7 @@ class TripService {
       'page': page.toString(),
       'per_page': perPage.toString(),
     };
-    
+
     if (search != null && search.isNotEmpty) {
       queryParams['search'] = search;
     }
@@ -101,9 +103,9 @@ class TripService {
       queryParams['driver_id'] = driverId.toString();
     }
 
-    final uri = Uri.parse('$baseUrl/trips').replace(queryParameters: queryParams);
+    final uri = ApiConfig.apiUri('trips', queryParameters: queryParams);
     debugPrint('TripService.getAllTrips(): GET $uri');
-    
+
     final response = await ApiReads.get(uri, headers: await _headers());
 
     debugPrint(
@@ -114,7 +116,7 @@ class TripService {
 
   static Future<dynamic> approveTrip(int id) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/trips/$id/approve'),
+      ApiConfig.apiUri('trips/$id/approve'),
       headers: await _headers(),
     );
 
@@ -123,7 +125,7 @@ class TripService {
 
   static Future<dynamic> denyTrip(int id) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/trips/$id/deny'),
+      ApiConfig.apiUri('trips/$id/deny'),
       headers: await _headers(),
     );
 
@@ -132,7 +134,7 @@ class TripService {
 
   static Future<dynamic> startTrip(int id) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips/$id/start'),
+      ApiConfig.apiUri('trips/$id/start'),
       headers: await _headers(),
     );
 
@@ -141,7 +143,7 @@ class TripService {
 
   static Future<dynamic> endTrip(int id) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips/$id/end'),
+      ApiConfig.apiUri('trips/$id/end'),
       headers: await _headers(),
     );
 
@@ -150,7 +152,7 @@ class TripService {
 
   static Future<dynamic> startReturnTrip(int id) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips/$id/start-return'),
+      ApiConfig.apiUri('trips/$id/start-return'),
       headers: await _headers(),
     );
 
@@ -159,7 +161,7 @@ class TripService {
 
   static Future<dynamic> endReturnTrip(int id) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips/$id/end-return'),
+      ApiConfig.apiUri('trips/$id/end-return'),
       headers: await _headers(),
     );
 
@@ -170,7 +172,7 @@ class TripService {
     final headers = await _headers();
     headers['Accept'] = 'application/pdf';
     final response = await ApiReads.get(
-      Uri.parse('$baseUrl/trips/$id/print'),
+      ApiConfig.apiUri('trips/$id/print'),
       headers: headers,
       timeout: const Duration(seconds: 150),
     );
@@ -213,7 +215,7 @@ class TripService {
     required List<Map<String, String>> passengers,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips'),
+      ApiConfig.apiUri('trips'),
       headers: await _headers(),
       body: jsonEncode({
         'origin': origin,
@@ -239,7 +241,7 @@ class TripService {
     required List<Map<String, String>> passengers,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/trips/admin-create'),
+      ApiConfig.apiUri('trips/admin-create'),
       headers: await _headers(),
       body: jsonEncode({
         'origin': origin,
@@ -259,11 +261,12 @@ class TripService {
   static Future<dynamic> getAvailableDrivers({
     String? scheduledDeparture,
   }) async {
-    final uri = scheduledDeparture == null || scheduledDeparture.isEmpty
-        ? Uri.parse('$baseUrl/available-drivers')
-        : Uri.parse(
-            '$baseUrl/available-drivers?scheduled_departure=${Uri.encodeQueryComponent(scheduledDeparture)}',
-          );
+    final uri = ApiConfig.apiUri(
+      'available-drivers',
+      queryParameters: scheduledDeparture == null || scheduledDeparture.isEmpty
+          ? null
+          : {'scheduled_departure': scheduledDeparture},
+    );
 
     final response = await ApiReads.get(uri, headers: await _headers());
 
@@ -273,11 +276,12 @@ class TripService {
   static Future<dynamic> getAvailableVehicles({
     String? scheduledDeparture,
   }) async {
-    final uri = scheduledDeparture == null || scheduledDeparture.isEmpty
-        ? Uri.parse('$baseUrl/available-vehicles')
-        : Uri.parse(
-            '$baseUrl/available-vehicles?scheduled_departure=${Uri.encodeQueryComponent(scheduledDeparture)}',
-          );
+    final uri = ApiConfig.apiUri(
+      'available-vehicles',
+      queryParameters: scheduledDeparture == null || scheduledDeparture.isEmpty
+          ? null
+          : {'scheduled_departure': scheduledDeparture},
+    );
 
     final response = await ApiReads.get(uri, headers: await _headers());
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 
 class LoginException implements Exception {
   const LoginException(this.message);
@@ -29,16 +30,17 @@ class PasswordResetLimitException implements Exception {
 }
 
 class AuthService {
-  static const String baseUrl =
-      'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
   static const _storage = FlutterSecureStorage();
+
+  static String _storageKey(String key) => '${ApiConfig.storageNamespace}:$key';
 
   static Future<Map<String, dynamic>> login(
     String email,
     String password,
   ) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/login'),
+      ApiConfig.apiUri('login'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -74,23 +76,29 @@ class AuthService {
       throw const LoginException('The server returned no login token.');
     }
 
-    await _storage.write(key: 'auth_token', value: token);
-    await _storage.write(key: 'role', value: data['role'] as String?);
-    await _storage.write(key: 'name', value: data['name'] as String?);
+    await _storage.write(key: _storageKey('auth_token'), value: token);
+    await _storage.write(
+      key: _storageKey('role'),
+      value: data['role'] as String?,
+    );
+    await _storage.write(
+      key: _storageKey('name'),
+      value: data['name'] as String?,
+    );
 
     return data;
   }
 
   static Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
+    return await _storage.read(key: _storageKey('auth_token'));
   }
 
   static Future<String?> getRole() async {
-    return await _storage.read(key: 'role');
+    return await _storage.read(key: _storageKey('role'));
   }
 
   static Future<String?> getName() async {
-    return await _storage.read(key: 'name');
+    return await _storage.read(key: _storageKey('name'));
   }
 
   /// Check if user is currently logged in
@@ -111,7 +119,11 @@ class AuthService {
   }
 
   static Future<void> logout() async {
-    await _storage.deleteAll();
+    await Future.wait([
+      _storage.delete(key: _storageKey('auth_token')),
+      _storage.delete(key: _storageKey('role')),
+      _storage.delete(key: _storageKey('name')),
+    ]);
   }
 
   static Future<void> changePassword(String currentPassword) async {
@@ -121,7 +133,7 @@ class AuthService {
     }
 
     final response = await http.put(
-      Uri.parse('$baseUrl/change-password'),
+      ApiConfig.apiUri('change-password'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -147,7 +159,7 @@ class AuthService {
     try {
       response = await http
           .post(
-            Uri.parse('$baseUrl/password/forgot'),
+            ApiConfig.apiUri('password/forgot'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',

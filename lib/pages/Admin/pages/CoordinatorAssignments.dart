@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/services/coordinator_assignment_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
@@ -124,9 +125,7 @@ class _CoordinatorAssignmentsContentState
         ? 'available-drivers'
         : 'available-vehicles';
     final response = await http.get(
-      Uri.parse(
-        'https://cpsu-motorpool-backend.onrender.com/api/$availableResource',
-      ),
+      ApiConfig.apiUri(availableResource),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 

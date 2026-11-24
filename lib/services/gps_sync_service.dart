@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../pages/services/auth_service.dart';
 import 'api_reads.dart';
 import 'gps_service.dart';
+import 'api_config.dart';
 
 class GpsSyncService {
   static Future<Map<String, dynamic>> getLogs(int page) async {
@@ -10,7 +11,10 @@ class GpsSyncService {
       throw const GpsAccessException('Please log in again.');
     }
     final response = await ApiReads.get(
-      Uri.parse('${AuthService.baseUrl}/gps/sync-logs?page=$page'),
+      ApiConfig.apiUri(
+        'gps/sync-logs',
+        queryParameters: {'page': page.toString()},
+      ),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     if (await AuthService.getToken() != token ||

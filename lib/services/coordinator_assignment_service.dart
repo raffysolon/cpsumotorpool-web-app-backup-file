@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'api_config.dart';
 
 class CoordinatorAssignmentService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -31,7 +32,7 @@ class CoordinatorAssignmentService {
 
   static Future<dynamic> getAssignments() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/coordinator-assignments'),
+      ApiConfig.apiUri('coordinator-assignments'),
       headers: await _headers(),
     );
 
@@ -45,7 +46,7 @@ class CoordinatorAssignmentService {
     required int vehicleId,
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/coordinator-assignments'),
+      ApiConfig.apiUri('coordinator-assignments'),
       headers: await _headers(),
       body: jsonEncode({
         'campus_name': campusName,
@@ -66,7 +67,7 @@ class CoordinatorAssignmentService {
     required int vehicleId,
   }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/coordinator-assignments/$id'),
+      ApiConfig.apiUri('coordinator-assignments/$id'),
       headers: await _headers(),
       body: jsonEncode({
         'campus_name': campusName,
@@ -81,7 +82,7 @@ class CoordinatorAssignmentService {
 
   static Future<dynamic> deleteAssignment(int id) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/coordinator-assignments/$id'),
+      ApiConfig.apiUri('coordinator-assignments/$id'),
       headers: await _headers(),
     );
 

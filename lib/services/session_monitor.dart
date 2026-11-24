@@ -1,5 +1,6 @@
 import '../pages/services/auth_service.dart';
 import 'api_reads.dart';
+import 'api_config.dart';
 
 /// Detects revoked login tokens without treating network failures as logout.
 class SessionMonitor {
@@ -12,7 +13,7 @@ class SessionMonitor {
       final token = await AuthService.getToken();
       if (token == null || token.isEmpty) return false;
       final response = await ApiReads.get(
-        Uri.parse('${AuthService.baseUrl}/user'),
+        ApiConfig.apiUri('user'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',

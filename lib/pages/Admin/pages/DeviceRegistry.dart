@@ -1,6 +1,9 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
+import 'package:cpsumotorpooladmin/models/tracker_availability.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
@@ -8,6 +11,7 @@ import 'package:cpsumotorpooladmin/services/vehicle_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart'
     as skeleton;
+import 'package:cpsumotorpooladmin/utils/philippine_time.dart';
 
 // === Device Registry Page - Manage GPS Tracker Devices ===
 // Route: /devices
@@ -22,6 +26,10 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
   final _devices = <_DeviceData>[];
   final _vehicles = <_VehicleData>[];
   bool _isLoading = true;
+  bool _isFetching = false;
+  bool _refreshQueued = false;
+  bool _queuedShouldReportErrors = false;
+  Timer? _availabilityRefreshTimer;
 
   // Pagination state
   int _currentPage = 1;
@@ -33,19 +41,45 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
   void initState() {
     super.initState();
     _loadData();
+    _availabilityRefreshTimer = Timer.periodic(const Duration(seconds: 30), (
+      _,
+    ) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      _loadData(silent: true, queueIfBusy: false);
+    });
   }
 
-  Future<void> _loadData() async {
-    if (mounted) setState(() => _isLoading = true);
+  Future<void> _loadData({bool silent = false, bool queueIfBusy = true}) async {
+    if (!mounted) return;
+    if (_isFetching) {
+      if (queueIfBusy) {
+        _refreshQueued = true;
+        _queuedShouldReportErrors = _queuedShouldReportErrors || !silent;
+      }
+      return;
+    }
+
+    _isFetching = true;
+    final requestedPage = _currentPage;
+    if (_devices.isEmpty && !_isLoading) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       final results = await Future.wait([
-        DeviceService.getDevices(page: _currentPage, perPage: _perPage),
+        DeviceService.getDevices(page: requestedPage, perPage: _perPage),
         VehicleService.getVehicles(
           perPage: 1000,
         ), // Get all vehicles for dropdown
       ]);
 
       if (!mounted) return;
+      if (requestedPage != _currentPage) {
+        _refreshQueued = true;
+        _queuedShouldReportErrors = _queuedShouldReportErrors || !silent;
+        return;
+      }
+
       setState(() {
         _devices
           ..clear()
@@ -69,14 +103,34 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-      if (mounted) {
+      if (!silent) {
         AppNotification.showMessage(
           'Failed to load devices: $e',
           isError: true,
         );
       }
+    } finally {
+      _isFetching = false;
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+      }
+      if (mounted && _refreshQueued) {
+        final reportErrors = _queuedShouldReportErrors;
+        _refreshQueued = false;
+        _queuedShouldReportErrors = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && ModalRoute.of(context)?.isCurrent != false) {
+            _loadData(silent: !reportErrors, queueIfBusy: false);
+          }
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _availabilityRefreshTimer?.cancel();
+    super.dispose();
   }
 
   List<_DeviceData> _parseDevices(dynamic json) {
@@ -361,12 +415,25 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             child: AdminToolbar(
               title: const PageHeader(
                 title: 'Device Registry',
-                subtitle: 'Manage GPS Tracker Devices',
+                subtitle:
+                    'Heartbeat status shows the last tracker contact; '
+                    'Unreachable does not confirm the device is powered off.',
               ),
-              actions: ElevatedButton.icon(
-                onPressed: _showRegisterDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Register Device'),
+              actions: Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => _loadData(),
+                    tooltip: 'Refresh device list',
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _showRegisterDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Register Device'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -440,7 +507,7 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
           );
         }
         final width = (constraints.maxWidth - gutter * 2).clamp(
-          1060.0,
+          1220.0,
           double.infinity,
         );
         return SingleChildScrollView(
@@ -499,6 +566,13 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
                             ),
                           ),
                           Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Last Heartbeat',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(
                             child: Text(
                               'Status',
                               style: TextStyle(fontWeight: FontWeight.bold),
@@ -526,7 +600,6 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
   }
 
   Widget _buildDeviceCard(_DeviceData device) {
-    final color = device.isOnline ? Colors.green : Colors.grey;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -542,20 +615,22 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.circle, size: 9, color: color),
-                const SizedBox(width: 6),
-                Text(
-                  device.isOnline ? 'Online' : 'Offline',
-                  style: TextStyle(color: color),
-                ),
+                _availabilityBadge(device.availabilityStatus),
               ],
             ),
             const SizedBox(height: 12),
             Text('Vehicle: ${device.vehicleName ?? "-"}'),
             Text('Plate: ${device.vehiclePlate ?? "-"}'),
             const SizedBox(height: 8),
-            Text('Registered: ${device.registeredAt ?? "-"}'),
-            Text('Last seen: ${device.lastSeen ?? "Never"}'),
+            Text(
+              'Registered: ${formatPhilippineTimestamp(device.registeredAt) ?? "-"}',
+            ),
+            Text(
+              'Last seen: ${formatPhilippineTimestamp(device.lastSeen) ?? "Never"}',
+            ),
+            Text(
+              'Last heartbeat: ${formatPhilippineTimestamp(device.lastHeartbeatAt, naiveTimestampIsUtc: true) ?? "Never"}',
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -582,9 +657,6 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
   }
 
   Widget _buildDeviceRow(_DeviceData device) {
-    final statusColor = device.isOnline ? Colors.green : Colors.grey;
-    final statusText = device.isOnline ? 'Online' : 'Offline';
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -617,35 +689,31 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
           Expanded(
             flex: 2,
             child: Text(
-              device.registeredAt ?? '-',
+              formatPhilippineTimestamp(device.registeredAt) ?? '-',
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
             flex: 2,
             child: Text(
-              device.lastSeen ?? 'Never',
+              formatPhilippineTimestamp(device.lastSeen) ?? 'Never',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              formatPhilippineTimestamp(
+                    device.lastHeartbeatAt,
+                    naiveTimestampIsUtc: true,
+                  ) ??
+                  'Never',
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
             flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                statusText,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+            child: _availabilityBadge(device.availabilityStatus),
           ),
           SizedBox(
             width: 100,
@@ -666,6 +734,34 @@ class _DeviceRegistryPageState extends State<DeviceRegistryPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Color _availabilityColor(TrackerAvailability status) {
+    return switch (status) {
+      TrackerAvailability.online => Colors.green.shade900,
+      TrackerAvailability.unstable => Colors.amber.shade900,
+      TrackerAvailability.unreachable => Colors.grey.shade800,
+    };
+  }
+
+  Widget _availabilityBadge(TrackerAvailability status) {
+    final color = _availabilityColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }
@@ -727,7 +823,8 @@ class _DeviceData {
   final String? vehiclePlate;
   final String? registeredAt;
   final String? lastSeen;
-  final bool isOnline;
+  final String? lastHeartbeatAt;
+  final TrackerAvailability availabilityStatus;
 
   _DeviceData({
     required this.deviceId,
@@ -736,7 +833,8 @@ class _DeviceData {
     this.vehiclePlate,
     this.registeredAt,
     this.lastSeen,
-    this.isOnline = false,
+    this.lastHeartbeatAt,
+    this.availabilityStatus = TrackerAvailability.unreachable,
   });
 
   factory _DeviceData.fromJson(Map<String, dynamic> json) {
@@ -747,7 +845,8 @@ class _DeviceData {
       vehiclePlate: json['vehicle_plate']?.toString(),
       registeredAt: json['registered_at']?.toString(),
       lastSeen: json['last_seen']?.toString(),
-      isOnline: json['is_online'] == true || json['is_online'] == 1,
+      lastHeartbeatAt: json['last_heartbeat_at']?.toString(),
+      availabilityStatus: TrackerAvailability.fromApi(json),
     );
   }
 }

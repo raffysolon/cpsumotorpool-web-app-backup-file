@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'api_config.dart';
 
 class AssignmentService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -11,15 +12,12 @@ class AssignmentService {
       throw Exception('Authentication token not found');
     }
 
-    return {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
+    return {'Accept': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
   static Future<Map<String, dynamic>?> getMyAssignment() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/my-assignment'),
+      ApiConfig.apiUri('my-assignment'),
       headers: await _headers(),
     );
 

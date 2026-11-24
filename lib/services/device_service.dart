@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'api_config.dart';
 
 class DeviceService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -30,11 +31,11 @@ class DeviceService {
     if (response.statusCode == 401) {
       throw Exception('Your session has expired. Please log in again.');
     }
-    
+
     if (response.statusCode == 403) {
       throw Exception('You do not have permission to perform this action.');
     }
-    
+
     if (response.statusCode == 429) {
       throw Exception('Too many requests. Please wait a moment and try again.');
     }
@@ -54,13 +55,13 @@ class DeviceService {
       'page': page.toString(),
       'per_page': perPage.toString(),
     };
-    
+
     if (search != null && search.isNotEmpty) {
       queryParams['search'] = search;
     }
 
-    final uri = Uri.parse('$baseUrl/devices').replace(queryParameters: queryParams);
-    
+    final uri = ApiConfig.apiUri('devices', queryParameters: queryParams);
+
     final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
@@ -78,16 +79,20 @@ class DeviceService {
       if (vehiclePlate != null) 'vehicle_plate': vehiclePlate,
     };
 
-    debugPrint('DeviceService.registerDevice(): POST $baseUrl/devices/register');
+    debugPrint(
+      'DeviceService.registerDevice(): POST $baseUrl/devices/register',
+    );
     debugPrint('DeviceService.registerDevice(): payload=$payload');
 
     final response = await http.post(
-      Uri.parse('$baseUrl/devices/register'),
+      ApiConfig.apiUri('devices/register'),
       headers: await _headers(),
       body: jsonEncode(payload),
     );
 
-    debugPrint('DeviceService.registerDevice(): status=${response.statusCode} body=${response.body}');
+    debugPrint(
+      'DeviceService.registerDevice(): status=${response.statusCode} body=${response.body}',
+    );
     return _parseResponse(response);
   }
 
@@ -98,7 +103,7 @@ class DeviceService {
     String? vehiclePlate,
   }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/devices/$deviceId'),
+      ApiConfig.apiUri('devices/$deviceId'),
       headers: await _headers(),
       body: jsonEncode({
         'vehicle_id': vehicleId,
@@ -112,7 +117,7 @@ class DeviceService {
   /// Delete/unregister a device
   static Future<dynamic> deleteDevice(String deviceId) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/devices/$deviceId'),
+      ApiConfig.apiUri('devices/$deviceId'),
       headers: await _headers(),
     );
 
@@ -122,7 +127,7 @@ class DeviceService {
   /// Get devices by vehicle ID
   static Future<dynamic> getDevicesByVehicle(int vehicleId) async {
     final response = await ApiReads.get(
-      Uri.parse('$baseUrl/devices/vehicle/$vehicleId'),
+      ApiConfig.apiUri('devices/vehicle/$vehicleId'),
       headers: await _headers(),
     );
 
@@ -132,7 +137,7 @@ class DeviceService {
   /// Get device details including last location
   static Future<dynamic> getDeviceDetails(String deviceId) async {
     final response = await ApiReads.get(
-      Uri.parse('$baseUrl/devices/$deviceId'),
+      ApiConfig.apiUri('devices/$deviceId'),
       headers: await _headers(),
     );
 

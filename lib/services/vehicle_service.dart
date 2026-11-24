@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'api_config.dart';
 
 class VehicleService {
-  static const String baseUrl = 'https://cpsu-motorpool-backend.onrender.com/api';
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -30,11 +31,11 @@ class VehicleService {
     if (response.statusCode == 401) {
       throw Exception('Your session has expired. Please log in again.');
     }
-    
+
     if (response.statusCode == 403) {
       throw Exception('You do not have permission to perform this action.');
     }
-    
+
     if (response.statusCode == 429) {
       throw Exception('Too many requests. Please wait a moment and try again.');
     }
@@ -53,13 +54,13 @@ class VehicleService {
       'page': page.toString(),
       'per_page': perPage.toString(),
     };
-    
+
     if (search != null && search.isNotEmpty) {
       queryParams['search'] = search;
     }
 
-    final uri = Uri.parse('$baseUrl/vehicles').replace(queryParameters: queryParams);
-    
+    final uri = ApiConfig.apiUri('vehicles', queryParameters: queryParams);
+
     final response = await ApiReads.get(uri, headers: await _headers());
 
     return _parseResponse(response);
@@ -69,21 +70,20 @@ class VehicleService {
     required String name,
     required String plateNo,
   }) async {
-    final payload = {
-      'name': name,
-      'plate_no': plateNo,
-    };
+    final payload = {'name': name, 'plate_no': plateNo};
 
     debugPrint('VehicleService.createVehicle(): POST $baseUrl/vehicles');
     debugPrint('VehicleService.createVehicle(): payload=$payload');
 
     final response = await http.post(
-      Uri.parse('$baseUrl/vehicles'),
+      ApiConfig.apiUri('vehicles'),
       headers: await _headers(),
       body: jsonEncode(payload),
     );
 
-    debugPrint('VehicleService.createVehicle(): status=${response.statusCode} body=${response.body}');
+    debugPrint(
+      'VehicleService.createVehicle(): status=${response.statusCode} body=${response.body}',
+    );
     return _parseResponse(response);
   }
 
@@ -93,12 +93,9 @@ class VehicleService {
     required String plateNo,
   }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/vehicles/$id'),
+      ApiConfig.apiUri('vehicles/$id'),
       headers: await _headers(),
-      body: jsonEncode({
-        'name': name,
-        'plate_no': plateNo,
-      }),
+      body: jsonEncode({'name': name, 'plate_no': plateNo}),
     );
 
     return _parseResponse(response);
@@ -106,7 +103,7 @@ class VehicleService {
 
   static Future<dynamic> deleteVehicle(int id) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/vehicles/$id'),
+      ApiConfig.apiUri('vehicles/$id'),
       headers: await _headers(),
     );
 

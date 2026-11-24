@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 class DriverSettings extends StatefulWidget {
@@ -44,7 +45,7 @@ class _DriverSettingsState extends State<DriverSettings> {
         throw Exception('Authentication token not found');
       }
       final response = await http.get(
-        Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
+        ApiConfig.apiUri('user'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',

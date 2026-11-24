@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 class Settings extends StatefulWidget {
@@ -39,7 +40,7 @@ class _SettingsState extends State<Settings> {
     final token = await AuthService.getToken();
     if (token == null) return;
     final response = await http.get(
-      Uri.parse('https://cpsu-motorpool-backend.onrender.com/api/user'),
+      ApiConfig.apiUri('user'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     if (!mounted || response.statusCode != 200) return;

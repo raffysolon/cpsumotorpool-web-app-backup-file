@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import '../data/active_vehicles.dart';
+import '../models/tracker_availability.dart';
 import '../services/gps_service.dart';
 import 'app_shell.dart';
 
@@ -217,6 +218,26 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
     final recentCount = _trackedVehicles
         .where((vehicle) => vehicle.location.isRecent)
         .length;
+    final onlineCount = _trackedVehicles
+        .where(
+          (vehicle) =>
+              vehicle.vehicle.availabilityStatus == TrackerAvailability.online,
+        )
+        .length;
+    final unstableCount = _trackedVehicles
+        .where(
+          (vehicle) =>
+              vehicle.vehicle.availabilityStatus ==
+              TrackerAvailability.unstable,
+        )
+        .length;
+    final unreachableCount = _trackedVehicles
+        .where(
+          (vehicle) =>
+              vehicle.vehicle.availabilityStatus ==
+              TrackerAvailability.unreachable,
+        )
+        .length;
     DateTime? latestGps;
     for (final item in _trackedVehicles) {
       if (latestGps == null || item.location.recordedAt.isAfter(latestGps)) {
@@ -273,11 +294,12 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                           'Longitude: ${item.location.longitude.toStringAsFixed(6)}\n'
                           'Satellites: ${item.location.satellites ?? 'Unknown'}\n'
                           'Last received: ${_formatRecordedAt(item.location.recordedAt)}\n'
-                          'Status: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}\n'
+                          'Tracker heartbeat: ${item.vehicle.availabilityStatus.label}\n'
+                          'GPS freshness: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}\n'
                           '${_tripStatus(item.location)}',
                       child: _VehiclePin(
                         isRecent: item.location.isRecent,
-                        hasNoTrip: item.location.isUnscheduled,
+                        availabilityStatus: item.vehicle.availabilityStatus,
                       ),
                     ),
                   ),
@@ -398,6 +420,15 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                               color: AppColors.mutedDark,
                             ),
                           ),
+                        Text(
+                          'Mapped tracker heartbeat: $onlineCount online, '
+                          '$unstableCount unstable, '
+                          '$unreachableCount unreachable',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.mutedDark,
+                          ),
+                        ),
                         if (_lastSuccessfulRefresh != null)
                           Text(
                             'Last successful refresh: ${_formatRecordedAt(_lastSuccessfulRefresh!)}',
@@ -482,33 +513,56 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
 // === Vehicle marker ===
 
 class _VehiclePin extends StatelessWidget {
-  const _VehiclePin({required this.isRecent, this.hasNoTrip = false});
+  const _VehiclePin({required this.isRecent, required this.availabilityStatus});
 
   final bool isRecent;
-  final bool hasNoTrip;
+  final TrackerAvailability availabilityStatus;
+
+  Color get _availabilityColor => switch (availabilityStatus) {
+    TrackerAvailability.online => Colors.green.shade800,
+    TrackerAvailability.unstable => Colors.amber.shade900,
+    TrackerAvailability.unreachable => Colors.grey.shade800,
+  };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isRecent ? AppColors.primary : Colors.grey,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 6,
-            offset: Offset(0, 2),
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: isRecent ? AppColors.primary : Colors.grey,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(
-        isRecent && hasNoTrip
-            ? Icons.question_mark_rounded
-            : Icons.local_shipping_rounded,
-        color: Colors.white,
-        size: 18,
-      ),
+          child: const Center(
+            child: Icon(
+              Icons.local_shipping_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: Container(
+            width: 13,
+            height: 13,
+            decoration: BoxDecoration(
+              color: _availabilityColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
