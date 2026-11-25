@@ -6,6 +6,7 @@ import 'services/session_monitor.dart';
 import 'package:flutter/material.dart';
 
 import 'widgets/app_shell.dart';
+import 'widgets/persistent_admin_shell.dart';
 
 // ─── Page Imports ───
 import 'pages/Admin/pages/Activetrip.dart';
@@ -47,6 +48,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _appVisible = true;
   static const Duration _idleTimeout = Duration(minutes: 5);
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final _adminNavigation = AdminShellNavigation();
 
   @override
   void initState() {
@@ -64,6 +66,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _activityTimer?.cancel();
     _sessionTimer?.cancel();
+    _adminNavigation.dispose();
     super.dispose();
   }
 
@@ -110,6 +113,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       behavior: HitTestBehavior.translucent,
       child: MaterialApp(
         navigatorKey: _navigatorKey,
+        navigatorObservers: [_adminNavigation],
         title: 'CPSU MotorPool',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -201,8 +205,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           textButtonTheme: TextButtonThemeData(style: _textButtonStyle()),
         ),
-        builder: (context, child) =>
-            AppNotification.host(child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => AppNotification.host(
+          child: PersistentAdminShell(
+            navigation: _adminNavigation,
+            navigatorKey: _navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
         // ─── Route Definitions ───
         initialRoute:
             WidgetsBinding.instance.platformDispatcher.defaultRouteName,
@@ -337,6 +346,7 @@ class _RoleGuardState extends State<_RoleGuard> {
 
     if (!mounted) return;
     if (allowed) {
+      if (widget.role == 'admin') AdminShellScope.of(context)?.authorize();
       setState(() => _isChecking = false);
       return;
     }

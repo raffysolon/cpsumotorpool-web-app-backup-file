@@ -298,16 +298,46 @@ class DriverShellAtmosphere extends StatelessWidget {
 }
 
 // ─── App Shell (responsive layout: sidebar + content) ───
+class AdminShellScope extends InheritedWidget {
+  const AdminShellScope({
+    super.key,
+    required this.hosted,
+    required this.authorize,
+    this.currentRoute,
+    required super.child,
+  });
+  final bool hosted;
+  final VoidCallback authorize;
+  final String? currentRoute;
+  static AdminShellScope? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AdminShellScope>();
+  @override
+  bool updateShouldNotify(AdminShellScope oldWidget) =>
+      hosted != oldWidget.hosted || currentRoute != oldWidget.currentRoute;
+}
+
 class AppShell extends StatelessWidget {
-  const AppShell({super.key, required this.currentRoute, required this.child});
+  const AppShell({
+    super.key,
+    required this.currentRoute,
+    required this.child,
+    this.persistentHost = false,
+    this.navigatorKey,
+  });
 
   final String currentRoute;
   final Widget child;
+
+  final bool persistentHost;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   static final ValueNotifier<bool?> _collapsed = ValueNotifier<bool?>(null);
 
   @override
   Widget build(BuildContext context) {
+    if (!persistentHost && (AdminShellScope.of(context)?.hosted ?? false)) {
+      return child;
+    }
     return ValueListenableBuilder<bool?>(
       valueListenable: _collapsed,
       builder: (context, collapsed, _) => LayoutBuilder(
@@ -337,9 +367,10 @@ class AppShell extends StatelessWidget {
                   child: Builder(
                     builder: (context) => _Sidebar(
                       currentRoute: currentRoute,
+                      navigatorKey: navigatorKey,
                       compact: false,
                       toggleTooltip: 'Close menu',
-                      onToggle: () => Navigator.pop(context),
+                      onToggle: () => Scaffold.of(context).closeDrawer(),
                     ),
                   ),
                 ),
@@ -357,6 +388,7 @@ class AppShell extends StatelessWidget {
                   children: [
                     _Sidebar(
                       currentRoute: currentRoute,
+                      navigatorKey: navigatorKey,
                       compact: rail,
                       onToggle: () => _collapsed.value = !rail,
                     ),
@@ -379,9 +411,11 @@ class _Sidebar extends StatefulWidget {
     this.compact = false,
     required this.onToggle,
     this.toggleTooltip,
+    this.navigatorKey,
   });
 
   final String currentRoute;
+  final GlobalKey<NavigatorState>? navigatorKey;
   final bool compact;
   final VoidCallback onToggle;
   final String? toggleTooltip;
@@ -526,17 +560,25 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   void _go(BuildContext context, String route) {
-    final current = ModalRoute.of(context)?.settings.name;
+    final navigator =
+        widget.navigatorKey?.currentState ?? Navigator.of(context);
+    final current =
+        AdminShellScope.of(context)?.currentRoute ??
+        ModalRoute.of(context)?.settings.name ??
+        widget.currentRoute;
     if (Scaffold.maybeOf(context)?.isDrawerOpen ?? false) {
-      Navigator.pop(context);
+      Scaffold.of(context).closeDrawer();
     }
     if (current == route) return;
-    Navigator.pushReplacementNamed(context, route);
+    navigator.pushReplacementNamed(route);
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
+    final navigator =
+        widget.navigatorKey?.currentState ?? Navigator.of(context);
+    final dialogHost = navigator.overlay!.context;
     final shouldLogout = await showDialog<bool>(
-      context: context,
+      context: dialogHost,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
@@ -585,7 +627,7 @@ class _SidebarState extends State<_Sidebar> {
     if (shouldLogout == true && context.mounted) {
       await AuthService.logout();
       if (!context.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      navigator.pushNamedAndRemoveUntil('/login', (_) => false);
     }
   }
 
@@ -737,8 +779,12 @@ class _SidebarState extends State<_Sidebar> {
                           horizontal: compact ? 12 : 20,
                         ),
                         child: Row(
+                          mainAxisAlignment: compact
+                              ? MainAxisAlignment.center
+                              : MainAxisAlignment.start,
                           children: [
                             Container(
+                              key: const ValueKey('sidebar-logo'),
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(

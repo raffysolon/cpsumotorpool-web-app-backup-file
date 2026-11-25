@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_fonts/src/google_fonts_base.dart' as fonts;
 import 'package:cpsumotorpooladmin/main.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/pages/feautures/auth/Login.dart';
 import 'package:cpsumotorpooladmin/widgets/active_vehicles_map.dart';
 
@@ -47,9 +49,10 @@ void main() {
     await Future.wait([textFont.load(), icons.load()]);
   });
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({
-      'auth_token': 'test-only',
-      'name': 'Admin User',
+      '${ApiConfig.storageNamespace}:auth_token': 'test-only',
+      '${ApiConfig.storageNamespace}:name': 'Admin User',
     });
     GoogleFonts.config.allowRuntimeFetching = false;
     fonts.assetManifest = _TestFontManifest();
@@ -86,8 +89,8 @@ void main() {
       tester,
     ) async {
       FlutterSecureStorage.setMockInitialValues({
-        'auth_token': '$role-session',
-        'role': role,
+        '${ApiConfig.storageNamespace}:auth_token': '$role-session',
+        '${ApiConfig.storageNamespace}:role': role,
       });
       tester.binding.platformDispatcher.defaultRouteNameTestValue = '/login';
       addTearDown(

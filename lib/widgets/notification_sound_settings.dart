@@ -116,92 +116,95 @@ class _NotificationSoundSettingsState extends State<NotificationSoundSettings> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 440;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SwitchListTile(
-              key: const Key('notification-sounds-enabled'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Enable notification sounds'),
-              subtitle: const Text(
-                'Play a short tone for new movement and departure alerts.',
+        return Material(
+          type: MaterialType.transparency,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SwitchListTile(
+                key: const Key('notification-sounds-enabled'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Enable notification sounds'),
+                subtitle: const Text(
+                  'Play a short tone for new movement and departure alerts.',
+                ),
+                value: _preferences.enabled,
+                onChanged: (enabled) =>
+                    _save(_preferences.copyWith(enabled: enabled)),
               ),
-              value: _preferences.enabled,
-              onChanged: (enabled) =>
-                  _save(_preferences.copyWith(enabled: enabled)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Volume: ${(_preferences.volume * 100).round()}%',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            Slider(
-              key: const Key('notification-sound-volume'),
-              value: _preferences.volume,
-              min: 0,
-              max: 1,
-              divisions: 10,
-              label: '${(_preferences.volume * 100).round()}%',
-              onChanged: (volume) => setState(
-                () => _preferences = _preferences.copyWith(volume: volume),
-              ),
-              onChangeEnd: (volume) =>
-                  _save(_preferences.copyWith(volume: volume)),
-            ),
-            SwitchListTile(
-              key: const Key('notification-sounds-high-priority-only'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text('High-priority alerts only'),
-              subtitle: const Text(
-                'Ignore ordinary pre-departure and scheduled alerts.',
-              ),
-              value: _preferences.highPriorityOnly,
-              onChanged: (enabled) =>
-                  _save(_preferences.copyWith(highPriorityOnly: enabled)),
-            ),
-            const SizedBox(height: 8),
-            if (compact)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _testButton(),
-                  const SizedBox(height: 8),
-                  _audioStatus(context, textAlign: TextAlign.left),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  _testButton(),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _audioStatus(context, textAlign: TextAlign.end),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 8),
-            const Text(
-              'Sounds play only while this app is open and active. They do not '
-              'play when the browser is closed or suspended.',
-              style: TextStyle(fontSize: 12, height: 1.4),
-            ),
-            if (_soundMessage != null) ...[
               const SizedBox(height: 8),
               Text(
-                _soundMessage!,
-                key: const Key('notification-sound-feedback'),
-                style: TextStyle(
-                  color: _audioReady
-                      ? Colors.green.shade800
-                      : Colors.orange.shade900,
-                ),
+                'Volume: ${(_preferences.volume * 100).round()}%',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-            ],
-            if (_error != null) ...[
+              Slider(
+                key: const Key('notification-sound-volume'),
+                value: _preferences.volume,
+                min: 0,
+                max: 1,
+                divisions: 10,
+                label: '${(_preferences.volume * 100).round()}%',
+                onChanged: (volume) => setState(
+                  () => _preferences = _preferences.copyWith(volume: volume),
+                ),
+                onChangeEnd: (volume) =>
+                    _save(_preferences.copyWith(volume: volume)),
+              ),
+              SwitchListTile(
+                key: const Key('notification-sounds-high-priority-only'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('High-priority alerts only'),
+                subtitle: const Text(
+                  'Ignore ordinary pre-departure and scheduled alerts.',
+                ),
+                value: _preferences.highPriorityOnly,
+                onChanged: (enabled) =>
+                    _save(_preferences.copyWith(highPriorityOnly: enabled)),
+              ),
               const SizedBox(height: 8),
-              Text(_error!, style: TextStyle(color: Colors.red.shade800)),
+              if (compact)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _testButton(),
+                    const SizedBox(height: 8),
+                    _audioStatus(context, textAlign: TextAlign.left),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    _testButton(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _audioStatus(context, textAlign: TextAlign.end),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sounds play only while this app is open and active. They do not '
+                'play when the browser is closed or suspended.',
+                style: TextStyle(fontSize: 12, height: 1.4),
+              ),
+              if (_soundMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _soundMessage!,
+                  key: const Key('notification-sound-feedback'),
+                  style: TextStyle(
+                    color: _audioReady
+                        ? Colors.green.shade800
+                        : Colors.orange.shade900,
+                  ),
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!, style: TextStyle(color: Colors.red.shade800)),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
