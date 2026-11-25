@@ -34,6 +34,8 @@ class _TripHistoryData {
     required this.returnSchedule,
     required this.returnDeparture,
     required this.returnArrival,
+    required this.outboundDeparture,
+    required this.outboundArrival,
     required this.passengers,
   });
 
@@ -47,12 +49,26 @@ class _TripHistoryData {
   final String returnSchedule;
   final String returnDeparture;
   final String returnArrival;
+  final String outboundDeparture;
+  final String outboundArrival;
   final List<Map<String, dynamic>> passengers;
 
   factory _TripHistoryData.fromJson(Map<String, dynamic> json) {
     final driver = _map(json['driver']);
     final vehicle = _map(json['vehicle']);
     final returning = TripReturnDetails.fromJson(json);
+    final movements = json['movements'];
+    final outbound = movements is List
+        ? movements.whereType<Map>().where(
+            (item) => '${item['movement_no']}' == '1',
+          )
+        : const Iterable<Map>.empty();
+    final firstMovement = outbound.isEmpty
+        ? const <dynamic, dynamic>{}
+        : outbound.first;
+    String recorded(dynamic value) => DateTime.tryParse(_text(value)) == null
+        ? 'Not recorded'
+        : _dateTime(value);
     final passengers = json['passengers'] is List
         ? (json['passengers'] as List)
               .whereType<Map>()
@@ -81,6 +97,8 @@ class _TripHistoryData {
           ? 'Not recorded'
           : _dateTime(returning.arrived),
       passengers: passengers,
+      outboundDeparture: recorded(firstMovement['actual_departure_at']),
+      outboundArrival: recorded(firstMovement['actual_arrival_at']),
     );
   }
 }
@@ -265,37 +283,54 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
         scrollable: true,
         title: const Text('Trip Details'),
         content: SizedBox(
-          width: 430,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _detail('Driver', trip.driverName),
-                _detail('Vehicle', trip.vehicle),
-                _detail('Route', '${trip.origin} to ${trip.destination}'),
-                _detail('Purpose', trip.purpose),
-                _detail('Departure', trip.departure),
-                _detail('Return schedule', trip.returnSchedule),
-                _detail('Actual return departure', trip.returnDeparture),
-                _detail('Actual return arrival', trip.returnArrival),
+          width: 560,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailSection(
+                'Driver & Vehicle',
+                Icons.local_shipping_outlined,
+                [
+                  _detail('Driver', trip.driverName),
+                  _detail('Vehicle', trip.vehicle),
+                  _detail('Route', '${trip.origin} to ${trip.destination}'),
+                  _detail('Purpose', trip.purpose),
+                  _detail(
+                    'Passengers',
+                    trip.passengers.isEmpty
+                        ? 'None'
+                        : trip.passengers
+                              .map((passenger) {
+                                final name = _text(passenger['name']);
+                                final designation = _text(
+                                  passenger['designation'],
+                                );
+                                return designation.isEmpty
+                                    ? name
+                                    : '$name ($designation)';
+                              })
+                              .join(', '),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _detailSection('Planned Schedule', Icons.event_outlined, [
                 _detail(
-                  'Passengers',
-                  trip.passengers.isEmpty
-                      ? 'None'
-                      : trip.passengers
-                            .map((passenger) {
-                              final name = _text(passenger['name']);
-                              final designation = _text(
-                                passenger['designation'],
-                              );
-                              return designation.isEmpty
-                                  ? name
-                                  : '$name ($designation)';
-                            })
-                            .join(', '),
+                  'Scheduled departure',
+                  trip.departure.trim().isEmpty
+                      ? 'Not scheduled'
+                      : _dateTime(trip.departure),
                 ),
-              ],
-            ),
+                _detail('Scheduled return departure', trip.returnSchedule),
+              ]),
+              const SizedBox(height: 14),
+              _detailSection('Actual Travel', Icons.route_outlined, [
+                _detail('Outbound departure', trip.outboundDeparture),
+                _detail('Arrival at destination', trip.outboundArrival),
+                _detail('Return departure', trip.returnDeparture),
+                _detail('Return arrival', trip.returnArrival),
+              ]),
+            ],
           ),
         ),
         actions: [
@@ -341,6 +376,41 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
             TextSpan(text: value.isEmpty ? '-' : value),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _detailSection(String title, IconData icon, List<Widget> details) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAF9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.primaryDark),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          ...details,
+        ],
       ),
     );
   }
