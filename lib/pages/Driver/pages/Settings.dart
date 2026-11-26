@@ -88,7 +88,10 @@ class _DriverSettingsState extends State<DriverSettings> {
       await AuthService.changePassword(_currentPassword.text);
       if (!mounted) return;
       _currentPassword.clear();
-      _message('Check your registered email to finish changing your password.');
+      AppNotification.showMessage(
+        'Password reset email sent. Check your inbox or spam folder to continue.',
+        isSuccess: true,
+      );
     } on LoginException catch (error) {
       if (mounted) _message(error.message);
     } catch (_) {

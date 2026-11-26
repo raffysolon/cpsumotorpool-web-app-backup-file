@@ -9,6 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_fonts/src/google_fonts_base.dart' as fonts;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/Settings.dart';
 import 'package:cpsumotorpooladmin/pages/Driver/pages/Settings.dart';
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
@@ -48,9 +50,10 @@ void main() {
   });
   tearDown(AppNotification.dismiss);
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({
-      'auth_token': 'test-only',
-      'name': 'Admin User',
+      '${ApiConfig.storageNamespace}:auth_token': 'test-only',
+      '${ApiConfig.storageNamespace}:name': 'Admin User',
     });
     GoogleFonts.config.allowRuntimeFetching = false;
     fonts.assetManifest = _TestFontManifest();
@@ -72,8 +75,8 @@ void main() {
       '$role settings sends email and toggles current password visibility',
       (tester) async {
         FlutterSecureStorage.setMockInitialValues({
-          'auth_token': 'test-token',
-          'role': role,
+          '${ApiConfig.storageNamespace}:auth_token': 'test-token',
+          '${ApiConfig.storageNamespace}:role': role,
         });
         var requests = 0;
         await http.runWithClient(
@@ -116,10 +119,11 @@ void main() {
             expect(requests, 1);
             expect(
               find.text(
-                'Check your registered email to finish changing your password.',
+                'Password reset email sent. Check your inbox or spam folder to continue.',
               ),
               findsOneWidget,
             );
+            expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
             expect(tester.takeException(), isNull);
             AppNotification.dismiss();
             await tester.pumpWidget(const SizedBox());
@@ -147,7 +151,9 @@ void main() {
     );
   }
   test('password email errors are reported to the caller', () async {
-    FlutterSecureStorage.setMockInitialValues({'auth_token': 'test-token'});
+    FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:auth_token': 'test-token',
+    });
     await http.runWithClient(
       () async {
         await expectLater(
