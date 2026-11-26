@@ -577,6 +577,9 @@ class _SidebarState extends State<_Sidebar> {
     final navigator =
         widget.navigatorKey?.currentState ?? Navigator.of(context);
     final dialogHost = navigator.overlay!.context;
+    // The mobile drawer lives above the route Navigator. Close it so it
+    // cannot cover the confirmation dialog or intercept its buttons.
+    Scaffold.maybeOf(context)?.closeDrawer();
     final shouldLogout = await showDialog<bool>(
       context: dialogHost,
       builder: (dialogContext) {
@@ -624,9 +627,10 @@ class _SidebarState extends State<_Sidebar> {
       },
     );
 
-    if (shouldLogout == true && context.mounted) {
+    if (shouldLogout == true && navigator.mounted) {
       await AuthService.logout();
-      if (!context.mounted) return;
+      // Closing the drawer may dispose its sidebar context.
+      if (!navigator.mounted) return;
       navigator.pushNamedAndRemoveUntil('/login', (_) => false);
     }
   }

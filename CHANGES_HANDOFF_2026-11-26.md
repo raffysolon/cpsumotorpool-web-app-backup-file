@@ -178,3 +178,11 @@ Not verified in this work: a full admin/web test suite, production PostgreSQL mi
 7. Verify live login, unique device registration, trip lifecycle, notifications, and actual reset-email delivery. Test tracker traffic separately with the real hardware.
 
 The local fixes are ready for review and deployment preparation. Production verification remains a separate step.
+
+## Follow-up: November 27 — mobile-browser logout
+
+- Driver app updates were pushed to `raffysolon/cpsu-motorpool-driver-app` main at `6ce3096`.
+- In the admin web shell, close the mobile drawer before opening the logout dialog so it cannot cover the dialog or intercept taps. Complete navigation using the surviving Navigator rather than the drawer's disposed context.
+- In the driver web dashboard, clear the stored session before navigating to login, and remove earlier routes so Back cannot return to the authenticated screens.
+- Changed web files: `lib/widgets/app_shell.dart`, `lib/pages/Driver/pages/Dashboard.dart`, and `test/persistent_admin_shell_test.dart`.
+- Three widget tests passed, covering phone-sized driver logout and desktop/mobile admin logout, cancellation, and session cleanup. Physical-device/browser verification after deployment remains necessary.
