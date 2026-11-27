@@ -30,6 +30,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:last_activity': DateTime.now()
+          .millisecondsSinceEpoch
+          .toString(),
       '${ApiConfig.storageNamespace}:name': 'Test Admin',
       '${ApiConfig.storageNamespace}:auth_token': 'test-token',
       '${ApiConfig.storageNamespace}:role': 'admin',
@@ -57,6 +60,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:last_activity': DateTime.now()
+          .millisecondsSinceEpoch
+          .toString(),
       '${ApiConfig.storageNamespace}:auth_token': 'driver-token',
       '${ApiConfig.storageNamespace}:role': 'driver',
       '${ApiConfig.storageNamespace}:name': 'Test Driver',

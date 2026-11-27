@@ -33,6 +33,36 @@ class AuthService {
   static String get baseUrl => ApiConfig.apiBaseUrl;
   static const _storage = FlutterSecureStorage();
   static Future<String?>? _accountScopeRequest;
+  static const idleTimeout = Duration(minutes: 5);
+
+  /// Returns true after clearing an idle (or pre-timestamp) session.
+  static Future<bool> expireIdleSession({DateTime? now}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+    final raw = await _storage.read(key: _storageKey('last_activity'));
+    final last = int.tryParse(raw ?? '');
+    final current = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    if (last != null &&
+        current >= last &&
+        current - last < idleTimeout.inMilliseconds) {
+      return false;
+    }
+    // Do not clear a different account signed in while storage was read.
+    if (await getToken() != token) return false;
+    await logout();
+    return true;
+  }
+
+  /// Only real input calls this; polling and lifecycle events must not renew it.
+  static Future<bool> recordActivity({DateTime? now}) async {
+    if (await expireIdleSession(now: now)) return true;
+    if (await getToken() == null) return false;
+    await _storage.write(
+      key: _storageKey('last_activity'),
+      value: (now ?? DateTime.now()).millisecondsSinceEpoch.toString(),
+    );
+    return false;
+  }
 
   static String _storageKey(String key) => '${ApiConfig.storageNamespace}:$key';
 
@@ -77,6 +107,10 @@ class AuthService {
       throw const LoginException('The server returned no login token.');
     }
 
+    await _storage.write(
+      key: _storageKey('last_activity'),
+      value: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
     await _storage.write(key: _storageKey('auth_token'), value: token);
     await _storage.write(
       key: _storageKey('role'),
@@ -150,6 +184,7 @@ class AuthService {
 
   /// Check if user is currently logged in
   static Future<bool> isLoggedIn() async {
+    if (await expireIdleSession()) return false;
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
@@ -171,6 +206,7 @@ class AuthService {
       _storage.delete(key: _storageKey('role')),
       _storage.delete(key: _storageKey('name')),
       _storage.delete(key: _storageKey('account_email')),
+      _storage.delete(key: _storageKey('last_activity')),
     ]);
     _accountScopeRequest = null;
   }

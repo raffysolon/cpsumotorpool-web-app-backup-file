@@ -10,6 +10,7 @@ class SessionMonitor {
     if (_checking) return false;
     _checking = true;
     try {
+      if (await AuthService.expireIdleSession()) return true;
       final token = await AuthService.getToken();
       if (token == null || token.isEmpty) return false;
       final response = await ApiReads.get(

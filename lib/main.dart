@@ -4,6 +4,7 @@ import 'dart:async';
 import 'services/session_monitor.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'widgets/app_shell.dart';
 import 'widgets/persistent_admin_shell.dart';
@@ -46,6 +47,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Timer? _sessionTimer;
   final _sessionMonitor = SessionMonitor();
   bool _appVisible = true;
+  bool _recordingActivity = false;
   static const Duration _idleTimeout = Duration(minutes: 5);
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final _adminNavigation = AdminShellNavigation();
@@ -54,6 +56,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
     _resetActivityTimer();
     _sessionTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_appVisible) _checkSession();
@@ -64,6 +67,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _activityTimer?.cancel();
     _sessionTimer?.cancel();
     _adminNavigation.dispose();
@@ -81,18 +85,33 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _resetActivityTimer() {
     _activityTimer?.cancel();
     _activityTimer = Timer(_idleTimeout, () async {
-      await AuthService.logout();
-      // Use navigatorKey to get context even when timer fires
-      _navigatorKey.currentState?.pushNamedAndRemoveUntil(
-        '/login',
-        (_) => false,
-      );
+      await _checkSession();
     });
   }
 
-  void _markActivity() {
-    if (!mounted) return;
-    _resetActivityTimer();
+  Future<void> _markActivity() async {
+    if (!mounted || !_appVisible || _recordingActivity) return;
+    _recordingActivity = true;
+    try {
+      final expired = await AuthService.recordActivity();
+      if (!mounted) return;
+      if (expired) {
+        AppNotification.dismiss();
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/login',
+          (_) => false,
+        );
+      } else {
+        _resetActivityTimer();
+      }
+    } finally {
+      _recordingActivity = false;
+    }
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent || event is KeyRepeatEvent) _markActivity();
+    return false;
   }
 
   @override
@@ -100,7 +119,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _appVisible = state == AppLifecycleState.resumed;
     if (_appVisible) {
       _checkSession();
-      _markActivity();
     }
   }
 
@@ -110,6 +128,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       onPointerDown: (_) => _markActivity(),
       onPointerMove: (_) => _markActivity(),
       onPointerUp: (_) => _markActivity(),
+      onPointerSignal: (_) => _markActivity(),
       behavior: HitTestBehavior.translucent,
       child: MaterialApp(
         navigatorKey: _navigatorKey,
@@ -336,6 +355,7 @@ class _RoleGuardState extends State<_RoleGuard> {
   Future<void> _checkAccess() async {
     var allowed = false;
     try {
+      await AuthService.expireIdleSession();
       final token = await AuthService.getToken();
       final role = await AuthService.getRole();
       allowed =

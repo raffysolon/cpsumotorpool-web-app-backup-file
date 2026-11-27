@@ -51,6 +51,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:last_activity': DateTime.now()
+          .millisecondsSinceEpoch
+          .toString(),
       '${ApiConfig.storageNamespace}:auth_token': 'test-only',
       '${ApiConfig.storageNamespace}:name': 'Admin User',
     });
@@ -72,7 +75,11 @@ void main() {
   testWidgets('unauthenticated app opens login without exposing fleet data', (
     tester,
   ) async {
-    FlutterSecureStorage.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:last_activity': DateTime.now()
+          .millisecondsSinceEpoch
+          .toString(),
+    });
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
     expect(
@@ -89,6 +96,9 @@ void main() {
       tester,
     ) async {
       FlutterSecureStorage.setMockInitialValues({
+        '${ApiConfig.storageNamespace}:last_activity': DateTime.now()
+            .millisecondsSinceEpoch
+            .toString(),
         '${ApiConfig.storageNamespace}:auth_token': '$role-session',
         '${ApiConfig.storageNamespace}:role': role,
       });
