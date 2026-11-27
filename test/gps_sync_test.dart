@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 import 'package:cpsumotorpooladmin/pages/Admin/pages/SnycLogs.dart';
 import 'package:cpsumotorpooladmin/services/gps_service.dart';
 import 'package:cpsumotorpooladmin/services/gps_sync_service.dart';
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 
 class _TestFontManifest implements AssetManifest {
   @override
@@ -61,7 +62,7 @@ void main() {
   });
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({
-      'auth_token': 'test-only',
+      '${ApiConfig.storageNamespace}:auth_token': 'test-only',
       'name': 'Admin User',
     });
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -113,9 +114,13 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('REAL-TRACKER-1'), findsOneWidget);
+          expect(find.text('10.5, 123.4'), findsNothing);
+          await tester.tap(find.text('REAL-TRACKER-1'));
+          await tester.pumpAndSettle();
           expect(find.text('2026-11-18 09:00:00 PHT'), findsOneWidget);
           expect(find.text('GPS-001'), findsNothing);
           expect(tester.takeException(), isNull);
+          await tester.ensureVisible(find.text('Next'));
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
           expect(find.text('REAL-TRACKER-2'), findsOneWidget);

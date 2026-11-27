@@ -1,3 +1,5 @@
+import '../../../services/notification_updates.dart';
+import '../../../widgets/app_notification.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -43,6 +45,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   int _scheduledTripsCount = 0;
   int _historyTripsCount = 0;
   int _notificationCount = 0;
+  final _notificationUpdates = NotificationUpdates();
   String _driverFirstName = 'Driver';
   List<Map<String, dynamic>> _notifications = const [];
   Timer? _refreshTimer;
@@ -225,14 +228,15 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   Future<void> _loadNotifications({bool background = false}) async {
     try {
-      final countResult = await NotificationService.getUnreadCount();
       final notificationsResult = await NotificationService.getNotifications();
 
-      final countValue = countResult is Map ? countResult['count'] : null;
-      final count = countValue is num ? countValue.toInt() : 0;
+      final count = notificationsResult
+          .where((n) => n['is_read'] != true)
+          .length;
       final notifications = notificationsResult
           .map<Map<String, dynamic>>(
             (item) => {
+              ...item,
               'id': item['id'] ?? 0,
               'message': item['message'] ?? 'Notification',
               'created_at': item['created_at'] ?? '',
@@ -246,6 +250,11 @@ class _DriverDashboardState extends State<DriverDashboard>
       try {
         final accountScope = await AuthService.getNotificationAccountScope();
         if (accountScope != null) {
+          final message = _notificationUpdates.observe(
+            accountScope,
+            notifications,
+          );
+          if (message != null) AppNotification.showMessage(message);
           await NotificationSoundService.instance.observeNotifications(
             accountScope: accountScope,
             notifications: notifications,
@@ -257,9 +266,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
       if (!mounted) return;
 
-      if (!background ||
-          _notificationCount != count ||
-          _notifications.length != notifications.length) {
+      {
         setState(() {
           _notificationCount = count;
           _notifications = notifications;
@@ -270,8 +277,7 @@ class _DriverDashboardState extends State<DriverDashboard>
       if (background) return;
       if (!mounted) return;
       setState(() {
-        _notificationCount = 0;
-        _notifications = const [];
+        // Keep the last successful inbox while a request fails.
       });
     }
   }
@@ -282,6 +288,7 @@ class _DriverDashboardState extends State<DriverDashboard>
       builder: (_) {
         return NotificationDialog(
           notifications: _notifications,
+          loadNotifications: NotificationService.getNotifications,
           onDelete: (id) async {
             await NotificationService.deleteNotification(id);
             if (mounted) await _loadNotifications();

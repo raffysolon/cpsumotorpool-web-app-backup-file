@@ -1,3 +1,5 @@
+import '../services/notification_updates.dart';
+import 'app_notification.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -27,6 +29,7 @@ class AdminNotificationsController {
   final ValueNotifier<List<Map<String, dynamic>>> notifications =
       ValueNotifier<List<Map<String, dynamic>>>(const []);
   Future<void>? _refreshRequest;
+  final _updates = NotificationUpdates();
 
   Future<void> refresh() => _refreshRequest ??= _refresh().whenComplete(() {
     _refreshRequest = null;
@@ -34,15 +37,12 @@ class AdminNotificationsController {
 
   Future<void> _refresh() async {
     try {
-      final countResult = await NotificationService.getUnreadCount();
       final listResult = await NotificationService.getNotifications();
 
-      final count = countResult is Map
-          ? ((countResult['count'] ?? 0) as num).toInt()
-          : 0;
       final items = listResult
           .map<Map<String, dynamic>>(
             (item) => {
+              ...item,
               'id': item['id'] ?? 0,
               'message': item['message'] ?? 'Notification',
               'created_at': item['created_at'] ?? '',
@@ -56,6 +56,8 @@ class AdminNotificationsController {
       try {
         final accountScope = await AuthService.getNotificationAccountScope();
         if (accountScope != null) {
+          final message = _updates.observe(accountScope, items);
+          if (message != null) AppNotification.showMessage(message);
           await NotificationSoundService.instance.observeNotifications(
             accountScope: accountScope,
             notifications: items,
@@ -65,11 +67,10 @@ class AdminNotificationsController {
         debugPrint('Admin notification sound processing failed: $error');
       }
 
-      unreadCount.value = count;
+      unreadCount.value = items.where((n) => n['is_read'] != true).length;
       notifications.value = items;
-    } catch (_) {
-      unreadCount.value = 0;
-      notifications.value = const [];
+    } catch (error) {
+      debugPrint('Notification refresh failed: $error');
     }
   }
 
@@ -88,6 +89,7 @@ class AdminNotificationsController {
       builder: (_) {
         return NotificationDialog(
           notifications: items,
+          loadNotifications: NotificationService.getNotifications,
           onAcknowledge: markAsReadAndRefresh,
           onDelete: (id) async {
             await NotificationService.deleteNotification(id);

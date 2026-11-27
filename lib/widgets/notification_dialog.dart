@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'notification_item.dart';
@@ -9,11 +10,13 @@ class NotificationDialog extends StatefulWidget {
     required this.notifications,
     required this.onAcknowledge,
     this.onDelete,
+    this.loadNotifications,
   });
 
   final List<Map<String, dynamic>> notifications;
   final Future<void> Function(int id) onAcknowledge;
   final Future<void> Function(int id)? onDelete;
+  final Future<List<Map<String, dynamic>>> Function()? loadNotifications;
 
   @override
   State<NotificationDialog> createState() => _NotificationDialogState();
@@ -21,9 +24,52 @@ class NotificationDialog extends StatefulWidget {
 
 class _NotificationDialogState extends State<NotificationDialog> {
   final Set<int> _deleted = {};
-  List<Map<String, dynamic>> get notifications => widget.notifications
-      .where((item) => !_deleted.contains(int.tryParse('${item['id']}')))
-      .toList();
+  List<Map<String, dynamic>>? _loaded;
+  String? _error;
+  bool _loading = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.loadNotifications != null) {
+      _refresh();
+      _timer = Timer.periodic(const Duration(seconds: 15), (_) => _refresh());
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (_loading || widget.loadNotifications == null) return;
+    _loading = true;
+    try {
+      final items = await widget.loadNotifications!();
+      if (mounted) {
+        setState(() {
+          _loaded = items;
+          _error = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Unable to refresh notifications. Please retry.',
+        );
+      }
+    } finally {
+      _loading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get notifications =>
+      (_loaded ?? widget.notifications)
+          .where((item) => !_deleted.contains(int.tryParse('${item['id']}')))
+          .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -72,8 +118,18 @@ class _NotificationDialogState extends State<NotificationDialog> {
               ),
             ),
             const Divider(height: 1),
+            if (_error != null)
+              ListTile(
+                title: Text(_error!),
+                trailing: TextButton(
+                  onPressed: _refresh,
+                  child: const Text('Retry'),
+                ),
+              ),
             Expanded(
-              child: notifications.isEmpty
+              child: notifications.isEmpty && _error != null
+                  ? const SizedBox.shrink()
+                  : notifications.isEmpty
                   ? const _EmptyNotifications()
                   : Scrollbar(
                       thumbVisibility: screenSize.width >= 700,

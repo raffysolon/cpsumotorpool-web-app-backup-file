@@ -80,6 +80,126 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
     return '${pht.toIso8601String().substring(0, 19).replaceFirst('T', ' ')} PHT';
   }
 
+  Map<String, List<Map<String, dynamic>>> get _groups {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final record in _records) {
+      final device = record['device'];
+      final id =
+          '${record['vehicle_id'] ?? (device is Map ? device['device_id'] : null) ?? record['device_registry_id'] ?? 'Unknown vehicle'}';
+      (groups[id] ??= []).add(record);
+    }
+    return groups;
+  }
+
+  String _label(dynamic value, String fallback) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? fallback : text;
+  }
+
+  Widget _vehicleCard(String id, List<Map<String, dynamic>> records) {
+    final record = records.first;
+    final vehicle = record['vehicle'] is Map
+        ? record['vehicle'] as Map
+        : const {};
+    final campus = _label(
+      record['campus_name'] ?? vehicle['campus_name'],
+      'Not available',
+    );
+    // Do not infer a historical driver from the vehicle's current assignment.
+    final drivers = records
+        .map((r) {
+          final driver = r['driver'];
+          return driver is Map ? driver['name'] : r['driver_name'];
+        })
+        .where((v) => v != null && '$v'.trim().isNotEmpty)
+        .toSet();
+    final driverName = drivers.isEmpty ? 'Not available' : drivers.join(', ');
+    final vehicleName = _label(
+      vehicle['name'],
+      record['vehicle_id'] == null ? id : 'Vehicle #$id',
+    );
+    final plate = _label(vehicle['plate_no'], '');
+    final recovered = records
+        .where((r) => r['upload_source'] == 'recovered_lora')
+        .length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        child: Material(
+          color: Colors.transparent,
+          child: ExpansionTile(
+            key: ValueKey('sync-vehicle-$id'),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            childrenPadding: const EdgeInsets.only(bottom: 16),
+            title: Text(
+              plate.isEmpty ? vehicleName : '$vehicleName · $plate',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Campus: $campus'),
+                  Text('Driver: $driverName'),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${records.length} saved records on this page · $recovered via LoRa',
+                    style: const TextStyle(color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+            children: [
+              const ListTile(
+                leading: Icon(Icons.info_outline),
+                title: Text('Saved to cloud'),
+                subtitle: Text(
+                  'These records are already in the database. Pending SD records and transfer completion are not yet reported.',
+                ),
+              ),
+              AdminTableScroll(
+                child: DataTable(
+                  columns: const [
+                    DataColumn(label: Text('Device')),
+                    DataColumn(label: Text('Captured (PHT)')),
+                    DataColumn(label: Text('Received (PHT)')),
+                    DataColumn(label: Text('Source')),
+                    DataColumn(label: Text('Coordinates')),
+                  ],
+                  rows: records.map((r) {
+                    final device = r['device'];
+                    final source = switch (r['upload_source']) {
+                      'recovered_lora' => 'LoRa recovery',
+                      'recovered_lte' => 'LTE recovery',
+                      'live_lte' => 'Live LTE',
+                      _ => 'Not recorded',
+                    };
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            device is Map
+                                ? _label(device['device_id'], 'Unknown')
+                                : 'Unknown',
+                          ),
+                        ),
+                        DataCell(Text(_time(r['recorded_at']))),
+                        DataCell(Text(_time(r['received_at']))),
+                        DataCell(Text(source)),
+                        DataCell(Text('${r['latitude']}, ${r['longitude']}')),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -97,7 +217,7 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AdminToolbar(
-              title: const Text('GPS records received by the server'),
+              title: const Text('Vehicle sync overview'),
               actions: OutlinedButton.icon(
                 onPressed: _fetching ? null : () => _load(),
                 icon: const Icon(Icons.refresh),
@@ -105,6 +225,13 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(height: 12),
+            const Text(
+              'Uploaded records grouped by vehicle on this page. Open a vehicle to view its records.',
+              style: TextStyle(color: AppColors.mutedDark),
+            ),
+            const SizedBox(height: 8),
+            const Text('Live sync progress is not available yet.'),
+            const SizedBox(height: 16),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -115,40 +242,8 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
             else if (_records.isEmpty && _error == null)
               const Text('No GPS records received yet.')
             else if (_records.isNotEmpty)
-              GlassCard(
-                child: AdminTableScroll(
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Device')),
-                      DataColumn(label: Text('Received (PHT)')),
-                      DataColumn(label: Text('Coordinates')),
-                      DataColumn(label: Text('Satellites')),
-                    ],
-                    rows: _records.map((record) {
-                      final device = record['device'];
-                      return DataRow(
-                        cells: [
-                          DataCell(
-                            Text(
-                              device is Map
-                                  ? '${device['device_id'] ?? 'Unavailable'}'
-                                  : 'Unregistered device',
-                            ),
-                          ),
-                          DataCell(Text(_time(record['recorded_at']))),
-                          DataCell(
-                            Text(
-                              '${record['latitude']}, ${record['longitude']}',
-                            ),
-                          ),
-                          DataCell(
-                            Text('${record['satellites'] ?? 'Unknown'}'),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
+              ..._groups.entries.map(
+                (entry) => _vehicleCard(entry.key, entry.value),
               ),
             if (_lastPage > 1)
               Wrap(
