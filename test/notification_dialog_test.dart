@@ -109,7 +109,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(acknowledgedId, 42);
-    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('NEW'), findsNothing);
   });
 }
 

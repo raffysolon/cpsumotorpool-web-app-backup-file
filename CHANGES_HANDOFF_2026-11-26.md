@@ -186,3 +186,13 @@ The local fixes are ready for review and deployment preparation. Production veri
 - In the driver web dashboard, clear the stored session before navigating to login, and remove earlier routes so Back cannot return to the authenticated screens.
 - Changed web files: `lib/widgets/app_shell.dart`, `lib/pages/Driver/pages/Dashboard.dart`, and `test/persistent_admin_shell_test.dart`.
 - Three widget tests passed, covering phone-sized driver logout and desktop/mobile admin logout, cancellation, and session cleanup. Physical-device/browser verification after deployment remains necessary.
+
+## Follow-up: notification inbox controls
+
+- Admin web, driver web, and the mobile driver inbox now show a green unread background and `NEW` label. High-priority labels remain visible.
+- Each item offers `Mark as read` and `Delete`; deletion requires confirmation. Successful reads leave the inbox open. Failed requests retain the item and show an inline retry message.
+- The shared `notification_item.dart` component is included in both Flutter repositories. Mobile notification counts refresh when returning to the dashboard.
+- The driver web dashboard no longer replaces real notifications with synthetic trip-summary entries. Web mappings now preserve `is_read` from the API.
+- Backend: added authenticated `DELETE /api/notifications/{notification}` with owner checks. Deletion dismisses the notification using `dismissed_at` and marks it read; it does not delete trips or discard event keys needed to prevent duplicate automated alerts.
+- Deploy the backend migration `2026_11_27_000001_add_dismissed_at_to_notifications.php` before the updated clients. Existing notifications are preserved because the added column is nullable.
+- Verified locally: backend **116 tests / 669 assertions**, web notification tests **8 passed**, mobile suite **7 passed**. The migration was applied only to the local test database; production deployment has not been performed for this feature.

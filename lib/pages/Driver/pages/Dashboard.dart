@@ -182,35 +182,6 @@ class _DriverDashboardState extends State<DriverDashboard>
         return effectiveStatus == 'completed';
       }).toList();
 
-      // Build notification list from approved/scheduled/active trips
-      final approvedNotifications = rawTrips
-          .where((trip) {
-            final storedStatus = (trip['status'] ?? '')
-                .toString()
-                .trim()
-                .toLowerCase();
-            final effectiveStatus = (trip['effective_status'] ?? storedStatus)
-                .toString()
-                .trim()
-                .toLowerCase();
-            return storedStatus == 'approved' ||
-                effectiveStatus == 'scheduled' ||
-                effectiveStatus == 'active';
-          })
-          .map<Map<String, String>>((trip) {
-            final origin = (trip['origin'] ?? 'Origin').toString();
-            final destination = (trip['destination'] ?? 'Destination')
-                .toString();
-            final route = '$origin to $destination';
-            final storedStatus = (trip['status'] ?? 'approved').toString();
-            return {
-              'title': 'Trip update',
-              'message': route,
-              'time': storedStatus.toUpperCase(),
-            };
-          })
-          .toList();
-
       if (!mounted) return;
 
       final nextMyTripsCount = visibleMyTrips.length;
@@ -226,18 +197,16 @@ class _DriverDashboardState extends State<DriverDashboard>
         return effectiveStatus == 'scheduled';
       }).length;
       final nextHistoryTripsCount = completedTrips.length;
-      final nextNotifications = approvedNotifications;
 
       if (!background ||
           _myTripsCount != nextMyTripsCount ||
           _scheduledTripsCount != nextScheduledTripsCount ||
-          _historyTripsCount != nextHistoryTripsCount ||
-          _notifications.length != nextNotifications.length) {
+          _historyTripsCount != nextHistoryTripsCount) {
         setState(() {
           _myTripsCount = nextMyTripsCount;
           _scheduledTripsCount = nextScheduledTripsCount;
           _historyTripsCount = nextHistoryTripsCount;
-          _notifications = nextNotifications;
+
           _isLoadingTripCounts = false;
         });
       }
@@ -249,7 +218,6 @@ class _DriverDashboardState extends State<DriverDashboard>
         _myTripsCount = 0;
         _scheduledTripsCount = 0;
         _historyTripsCount = 0;
-        _notifications = const [];
         _isLoadingTripCounts = false;
       });
     }
@@ -270,6 +238,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               'created_at': item['created_at'] ?? '',
               'event_key': item['event_key'],
               'priority': item['priority'] ?? 'normal',
+              'is_read': item['is_read'] == true,
             },
           )
           .toList();
@@ -313,6 +282,10 @@ class _DriverDashboardState extends State<DriverDashboard>
       builder: (_) {
         return NotificationDialog(
           notifications: _notifications,
+          onDelete: (id) async {
+            await NotificationService.deleteNotification(id);
+            if (mounted) await _loadNotifications();
+          },
           onAcknowledge: (id) async {
             await NotificationService.markAsRead(id);
             if (mounted) await _loadNotifications();

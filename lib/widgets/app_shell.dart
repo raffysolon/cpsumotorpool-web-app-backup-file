@@ -48,6 +48,7 @@ class AdminNotificationsController {
               'created_at': item['created_at'] ?? '',
               'event_key': item['event_key'],
               'priority': item['priority'] ?? 'normal',
+              'is_read': item['is_read'] == true,
             },
           )
           .toList();
@@ -88,6 +89,10 @@ class AdminNotificationsController {
         return NotificationDialog(
           notifications: items,
           onAcknowledge: markAsReadAndRefresh,
+          onDelete: (id) async {
+            await NotificationService.deleteNotification(id);
+            await refresh();
+          },
         );
       },
     );

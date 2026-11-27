@@ -89,4 +89,12 @@ class NotificationService {
 
     return _parseResponse(response);
   }
+
+  static Future<void> deleteNotification(int id) async {
+    final response = await http.delete(
+      ApiConfig.apiUri('notifications/$id'),
+      headers: await _headers(),
+    );
+    await _parseResponse(response);
+  }
 }
