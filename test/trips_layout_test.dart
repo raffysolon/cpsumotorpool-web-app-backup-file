@@ -1,4 +1,5 @@
 // ignore_for_file: implementation_imports
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -52,7 +53,7 @@ void main() {
   });
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({
-      'auth_token': 'test-only',
+      '${ApiConfig.storageNamespace}:auth_token': 'test-only',
       'name': 'Admin User',
     });
     GoogleFonts.config.allowRuntimeFetching = false;

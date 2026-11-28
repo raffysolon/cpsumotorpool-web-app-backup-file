@@ -11,7 +11,7 @@ import 'notification_audio_player_factory.dart';
 @immutable
 class NotificationSoundPreferences {
   const NotificationSoundPreferences({
-    this.enabled = false,
+    this.enabled = true,
     this.volume = 0.6,
     this.highPriorityOnly = false,
   });
@@ -81,7 +81,7 @@ class NotificationSoundService {
     final preferences = await _preferencesProvider();
     final prefix = _keyPrefix(accountScope);
     return NotificationSoundPreferences(
-      enabled: preferences.getBool('$prefix.enabled') ?? false,
+      enabled: preferences.getBool('$prefix.enabled') ?? true,
       volume: (preferences.getDouble('$prefix.volume') ?? 0.6)
           .clamp(0.0, 1.0)
           .toDouble(),
@@ -194,7 +194,6 @@ class NotificationSoundService {
       return;
     }
     if (!_activePreferences.enabled ||
-        !_audioUnlocked ||
         _isPlaying ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
@@ -248,7 +247,7 @@ class NotificationSoundService {
     _lastPlaybackError = null;
     try {
       await _audioPlayer.play(sound, volume.clamp(0.0, 1.0).toDouble());
-      if (unlock) _audioUnlocked = true;
+      _audioUnlocked = true;
       return true;
     } catch (error) {
       _audioUnlocked = false;
@@ -278,7 +277,7 @@ class NotificationSoundService {
     if (eventKey.startsWith('departure-overdue:')) {
       return NotificationSound.overdueDepartureWarning;
     }
-    return null;
+    return NotificationSound.scheduledDepartureReminder;
   }
 
   static bool notificationIsHighPriority(Map<String, dynamic> notification) =>

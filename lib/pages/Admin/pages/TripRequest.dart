@@ -1,5 +1,7 @@
 import 'package:cpsumotorpooladmin/widgets/trips_shell.dart';
 // ignore_for_file: file_names
+import 'package:latlong2/latlong.dart';
+import 'package:cpsumotorpooladmin/widgets/destination_pin_dialog.dart';
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'dart:async';
@@ -39,6 +41,7 @@ class _TripRequestData {
     required this.vehicle,
     required this.origin,
     required this.destination,
+    this.destinationPin,
     required this.purpose,
     required this.departure,
     required this.status,
@@ -50,6 +53,7 @@ class _TripRequestData {
   final String vehicle;
   final String origin;
   final String destination;
+  final LatLng? destinationPin;
   final String purpose;
   final String departure;
   final String status;
@@ -62,12 +66,15 @@ class _TripRequestData {
         ? json['passengers'] as List
         : const [];
 
+    final lat = double.tryParse('${json['destination_latitude']}');
+    final lng = double.tryParse('${json['destination_longitude']}');
     return _TripRequestData(
       id: int.tryParse('${json['id'] ?? ''}') ?? 0,
       driverName: _text(driver['name'] ?? json['driver_name']),
       vehicle: _vehicleText(vehicle),
       origin: _text(json['origin']),
       destination: _text(json['destination']),
+      destinationPin: lat == null || lng == null ? null : LatLng(lat, lng),
       purpose: _text(json['purpose']),
       departure: _text(json['scheduled_departure']),
       status: _statusText(json['status']),
@@ -129,7 +136,11 @@ class _TripRequestContentState extends State<_TripRequestContent>
     AdminNotificationsController.instance.refresh();
     _loadTrips();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false || !_isPageVisible || _isDialogOpen || _isRefreshRunning) {
+      if (!mounted ||
+          ModalRoute.of(context)?.isCurrent == false ||
+          !_isPageVisible ||
+          _isDialogOpen ||
+          _isRefreshRunning) {
         return;
       }
       _loadTrips(background: true);
@@ -224,6 +235,7 @@ class _TripRequestContentState extends State<_TripRequestContent>
           current.vehicle != next.vehicle ||
           current.origin != next.origin ||
           current.destination != next.destination ||
+          current.destinationPin != next.destinationPin ||
           current.purpose != next.purpose ||
           current.departure != next.departure ||
           current.status != next.status ||
@@ -257,13 +269,34 @@ class _TripRequestContentState extends State<_TripRequestContent>
 
   void _showDetails(_TripRequestData trip) {
     _isDialogOpen = true;
+    var pin = trip.destinationPin;
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => _TripDetailDialog(
-        trip: trip,
-        onApprove: () => _changeStatus(dialogContext, trip, true),
-        onDeny: () => _changeStatus(dialogContext, trip, false),
-        onViewTicket: () => _openTripTicketPdf(dialogContext, trip),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => _TripDetailDialog(
+          trip: trip,
+          pin: pin,
+          onSetPin: () async {
+            final selected = await showDestinationPinDialog(
+              context,
+              destination: trip.destination,
+              initialPin: pin,
+              savedDestinations: TripService.getSavedDestinations(),
+              save: (point) => TripService.setDestinationPin(
+                trip.id,
+                point.latitude,
+                point.longitude,
+              ),
+            );
+            if (selected != null && context.mounted) {
+              setDialogState(() => pin = selected);
+              await _loadTrips();
+            }
+          },
+          onApprove: () => _changeStatus(dialogContext, trip, true),
+          onDeny: () => _changeStatus(dialogContext, trip, false),
+          onViewTicket: () => _openTripTicketPdf(dialogContext, trip),
+        ),
       ),
     ).then((_) {
       if (mounted) {
@@ -703,12 +736,16 @@ class _StatusBadge extends StatelessWidget {
 class _TripDetailDialog extends StatelessWidget {
   const _TripDetailDialog({
     required this.trip,
+    required this.pin,
+    required this.onSetPin,
     required this.onApprove,
     required this.onDeny,
     required this.onViewTicket,
   });
 
   final _TripRequestData trip;
+  final LatLng? pin;
+  final VoidCallback onSetPin;
   final VoidCallback onApprove;
   final VoidCallback onDeny;
   final VoidCallback onViewTicket;
@@ -747,6 +784,21 @@ class _TripDetailDialog extends StatelessWidget {
                 _info('Vehicle', trip.vehicle),
                 _info('Origin', trip.origin),
                 _info('Destination', trip.destination),
+                _info(
+                  'Destination pin',
+                  pin == null
+                      ? 'No destination pin'
+                      : '${pin!.latitude.toStringAsFixed(5)}, ${pin!.longitude.toStringAsFixed(5)}',
+                ),
+                TextButton.icon(
+                  onPressed: onSetPin,
+                  icon: const Icon(Icons.place_outlined),
+                  label: Text(
+                    pin == null
+                        ? 'Set destination on map'
+                        : 'Edit destination pin',
+                  ),
+                ),
                 _info('Purpose', trip.purpose),
                 _info('Scheduled Departure', trip.departure),
                 _info('Status', trip.status),

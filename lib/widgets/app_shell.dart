@@ -37,7 +37,14 @@ class AdminNotificationsController {
 
   Future<void> _refresh() async {
     try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        unreadCount.value = 0;
+        notifications.value = const [];
+        return;
+      }
       final listResult = await NotificationService.getNotifications();
+      if (await AuthService.getToken() != token) return;
 
       final items = listResult
           .map<Map<String, dynamic>>(
@@ -67,6 +74,7 @@ class AdminNotificationsController {
         debugPrint('Admin notification sound processing failed: $error');
       }
 
+      if (await AuthService.getToken() != token) return;
       unreadCount.value = items.where((n) => n['is_read'] != true).length;
       notifications.value = items;
     } catch (error) {
@@ -516,7 +524,10 @@ class _SidebarState extends State<_Sidebar> {
     _isTripCountsRefreshing = true;
 
     try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) return;
       final result = await TripService.getAllTrips();
+      if (await AuthService.getToken() != token) return;
       final rawTrips = result is Map && result['data'] is List
           ? result['data'] as List
           : result is List

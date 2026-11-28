@@ -1,3 +1,4 @@
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -23,7 +24,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     GpsService.clearCache();
-    FlutterSecureStorage.setMockInitialValues({'auth_token': 'test-session'});
+    FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:auth_token': 'test-session',
+    });
   });
   tearDown(GpsService.clearCache);
 
@@ -89,7 +92,7 @@ void main() {
 
   test('rate limiting pauses subsequent GPS requests', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'auth_token': 'limited-session',
+      '${ApiConfig.storageNamespace}:auth_token': 'limited-session',
     });
     var requests = 0;
     await http.runWithClient(
@@ -109,7 +112,7 @@ void main() {
     'registry 429 pauses GPS, trip and notification reads together',
     () async {
       FlutterSecureStorage.setMockInitialValues({
-        'auth_token': 'registry-limited',
+        '${ApiConfig.storageNamespace}:auth_token': 'registry-limited',
       });
       var requests = 0;
       await http.runWithClient(
@@ -214,7 +217,7 @@ void main() {
         );
         await started.future;
         FlutterSecureStorage.setMockInitialValues({
-          'auth_token': 'new-test-session',
+          '${ApiConfig.storageNamespace}:auth_token': 'new-test-session',
         });
         final current = await GpsService.getLatestLocation(7);
         delayed.complete(

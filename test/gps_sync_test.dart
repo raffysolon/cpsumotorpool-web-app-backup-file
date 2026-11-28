@@ -25,6 +25,85 @@ class _TestFontManifest implements AssetManifest {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'reassigned tracker uses current assignment and retains capture vehicle',
+    () async {
+      await http.runWithClient(
+        () async {
+          final result = await GpsSyncService.getLogs(1);
+          final row = (result['data'] as List).single;
+          expect(row['overview_vehicle_id'], '7');
+          expect(row['vehicle']['name'], 'Honda Civic');
+          expect(row['campus_name'], 'San Carlos');
+          expect(row['driver_name'], 'Raphael Solon');
+          expect(row['vehicle_id'], 4);
+          expect(row['recorded_vehicle']['name'], 'Toyota Hiace');
+        },
+        () => MockClient((request) async {
+          final response = switch (request.url.pathSegments.last) {
+            'devices' =>
+              '{"data":[{"id":9,"device_id":"TRACKER","vehicle_id":7}]}',
+            'vehicles' =>
+              '{"data":[{"id":4,"name":"Toyota Hiace"},{"id":7,"name":"Honda Civic"}]}',
+            'coordinator-assignments' =>
+              '[{"vehicle_id":7,"campus_name":"San Carlos","driver":{"name":"Raphael Solon"}}]',
+            _ => '{"data":[{"device_registry_id":9,"vehicle_id":4}]}',
+          };
+          return http.Response(response, 200);
+        }),
+      );
+    },
+  );
+  test('sync supports wrapped assignments and nested vehicle IDs', () async {
+    await http.runWithClient(
+      () async {
+        final result = await GpsSyncService.getLogs(1);
+        final row = (result['data'] as List).single;
+        expect(row['campus_name'], 'Kabankalan');
+        expect(row['driver_name'], 'Juan Cruz');
+        expect(row['coordinator_name'], 'Campus Admin');
+        expect(row['vehicle']['name'], 'Assigned Van');
+      },
+      () => MockClient((request) async {
+        if (request.url.path.endsWith('coordinator-assignments')) {
+          return http.Response(
+            '{"data":[{"vehicle":{"id":"7","name":"Assigned Van"},"campus":"Kabankalan","coordinator_name":"Campus Admin","driver":{"first_name":"Juan","last_name":"Cruz"}}]}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('vehicles')) {
+          return http.Response('{"data":[],"last_page":1}', 200);
+        }
+        return http.Response('{"data":[{"vehicle_id":7}],"last_page":1}', 200);
+      }),
+    );
+  });
+  test('sync labels use registry names and current assignments', () async {
+    await http.runWithClient(
+      () async {
+        final result = await GpsSyncService.getLogs(1);
+        final row = (result['data'] as List).single;
+        expect(row['vehicle']['name'], 'Campus Van');
+        expect(row['driver_name'], 'Assigned Driver');
+        expect(row['campus_name'], 'San Carlos');
+      },
+      () => MockClient((request) async {
+        if (request.url.path.endsWith('coordinator-assignments')) {
+          return http.Response(
+            '[{"vehicle_id":7,"campus_name":"San Carlos","driver":{"name":"Assigned Driver"}}]',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('vehicles')) {
+          return http.Response(
+            '{"data":[{"id":7,"name":"Campus Van","plate_no":"ABC123"}],"last_page":1}',
+            200,
+          );
+        }
+        return http.Response('{"data":[{"vehicle_id":7}],"last_page":1}', 200);
+      }),
+    );
+  });
   test('sync service requests the selected page with authentication', () async {
     await http.runWithClient(
       () async {
@@ -115,7 +194,8 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('REAL-TRACKER-1'), findsOneWidget);
           expect(find.text('10.5, 123.4'), findsNothing);
-          await tester.tap(find.text('REAL-TRACKER-1'));
+          expect(find.text('Next'), findsNothing);
+          await tester.tap(find.text('View Details'));
           await tester.pumpAndSettle();
           expect(find.text('2026-11-18 09:00:00 PHT'), findsOneWidget);
           expect(find.text('GPS-001'), findsNothing);
@@ -125,11 +205,14 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('REAL-TRACKER-2'), findsOneWidget);
           expect(find.text('Page 2 of 2'), findsOneWidget);
+          await tester.tap(find.text('Close'));
+          await tester.pumpAndSettle();
+          expect(find.text('REAL-TRACKER-2'), findsNothing);
           failure = Exception('Temporary outage');
           await tester.tap(find.text('Refresh'));
           await tester.pumpAndSettle();
           expect(find.text('Temporary outage'), findsOneWidget);
-          expect(find.text('REAL-TRACKER-2'), findsOneWidget);
+          expect(find.text('REAL-TRACKER-1'), findsOneWidget);
           final beforeHidden = calls;
           tester.binding.handleAppLifecycleStateChanged(
             AppLifecycleState.hidden,
@@ -142,7 +225,7 @@ void main() {
           failure = const GpsAccessException('Please log in again.');
           await tester.tap(find.text('Refresh'));
           await tester.pumpAndSettle();
-          expect(find.text('REAL-TRACKER-2'), findsNothing);
+          expect(find.text('REAL-TRACKER-1'), findsNothing);
           expect(find.text('Please log in again.'), findsOneWidget);
           await tester.pumpWidget(const SizedBox());
         },

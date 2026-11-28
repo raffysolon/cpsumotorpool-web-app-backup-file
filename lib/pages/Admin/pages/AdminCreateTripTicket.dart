@@ -246,7 +246,13 @@ class _AdminCreateTripTicketContentState
       final nextTrips = rawTrips
           .whereType<Map>()
           .where((trip) {
-            return _text(trip['source']).trim().toLowerCase() == 'admin';
+            final status = _text(trip['status']).trim().toLowerCase();
+            final effective = _text(
+              trip['effective_status'],
+            ).trim().toLowerCase();
+            return _text(trip['source']).trim().toLowerCase() == 'admin' &&
+                status != 'completed' &&
+                effective != 'completed';
           })
           .map((trip) {
             return _CreatedTripRecord.fromJson(Map<String, dynamic>.from(trip));
@@ -438,6 +444,7 @@ class _AdminCreateTripTicketContentState
               _detailRow('Purpose', trip.purpose),
               _detailRow('Scheduled Departure', trip.scheduledDeparture),
               _detailRow('Status', trip.status),
+              _detailRow('Created by', 'Admin'),
               const SizedBox(height: 8),
               Text(
                 'Passengers (${trip.passengers.length})',

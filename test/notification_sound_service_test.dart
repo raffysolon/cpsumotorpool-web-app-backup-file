@@ -73,11 +73,7 @@ void main() {
     },
   );
 
-  test('new alerts stay silent until the user tests audio', () async {
-    await service.savePreferences(
-      'admin@example.test',
-      const NotificationSoundPreferences(enabled: true),
-    );
+  test('new trip notifications play by default without a sound test', () async {
     final initial = [_notification(1, 'movement:pretrip:1:2:3')];
     await service.observeNotifications(
       accountScope: 'admin@example.test',
@@ -85,25 +81,10 @@ void main() {
     );
     await service.observeNotifications(
       accountScope: 'admin@example.test',
-      notifications: [...initial, _notification(2, 'movement:pretrip:1:2:4')],
+      notifications: [...initial, _notification(2, '')],
     );
 
-    expect(player.sounds, isEmpty);
-
-    await service.playTestSound(0.4);
-    await service.observeNotifications(
-      accountScope: 'admin@example.test',
-      notifications: [
-        ...initial,
-        _notification(2, 'movement:pretrip:1:2:4'),
-        _notification(3, 'movement:pretrip:1:2:5'),
-      ],
-    );
-
-    expect(player.sounds, [
-      NotificationSound.scheduledDepartureReminder,
-      NotificationSound.approvedMovementBeforeStart,
-    ]);
+    expect(player.sounds, [NotificationSound.scheduledDepartureReminder]);
   });
 
   test(
@@ -188,7 +169,7 @@ void main() {
     );
   });
 
-  test('only verified backend event keys are connected to sounds', () {
+  test('special alerts have distinct sounds and other events use the default', () {
     expect(
       NotificationSoundService.soundForNotification(
         _notification(1, 'movement:unauthorized:1:2:3', priority: 'high'),
@@ -217,13 +198,13 @@ void main() {
       NotificationSoundService.soundForNotification(
         _notification(5, 'trip-connectivity-recovered:1'),
       ),
-      isNull,
+      NotificationSound.scheduledDepartureReminder,
     );
     expect(
       NotificationSoundService.soundForNotification(
         _notification(6, 'sync:success:1'),
       ),
-      isNull,
+      NotificationSound.scheduledDepartureReminder,
     );
   });
 

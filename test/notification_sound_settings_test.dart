@@ -43,7 +43,7 @@ void main() {
     expect(
       await service.loadPreferences('admin@example.test'),
       const NotificationSoundPreferences(
-        enabled: true,
+        enabled: false,
         volume: 0.8,
         highPriorityOnly: true,
       ),

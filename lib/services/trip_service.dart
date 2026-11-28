@@ -6,6 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'api_config.dart';
 
+class DestinationPinException implements Exception {
+  const DestinationPinException(this.message);
+  final String message;
+}
+
 class TripService {
   static String get baseUrl => ApiConfig.apiBaseUrl;
 
@@ -112,6 +117,64 @@ class TripService {
       'TripService.getAllTrips(): status=${response.statusCode} body=${response.body}',
     );
     return _parseResponse(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getSavedDestinations() async {
+    final response = await http.get(
+      ApiConfig.apiUri('saved-destinations'),
+      headers: await _headers(),
+    );
+    final data = await _parseResponse(response);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> saveDestination(
+    String name,
+    double latitude,
+    double longitude, {
+    int? id,
+  }) async {
+    final uri = ApiConfig.apiUri(
+      id == null ? 'saved-destinations' : 'saved-destinations/$id',
+    );
+    final headers = await _headers();
+    final body = jsonEncode({
+      'name': name,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+    final response = id == null
+        ? await http.post(uri, headers: headers, body: body)
+        : await http.put(uri, headers: headers, body: body);
+    _checkPinSave(response);
+  }
+
+  static Future<void> setDestinationPin(
+    int id,
+    double latitude,
+    double longitude,
+  ) async {
+    final response = await http.put(
+      ApiConfig.apiUri('trips/$id/destination-pin'),
+      headers: await _headers(),
+      body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
+    );
+    _checkPinSave(response);
+  }
+
+  static void _checkPinSave(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    throw DestinationPinException(switch (response.statusCode) {
+      401 => 'Your session has expired. Log in again.',
+      403 => 'Only admins can save destination pins.',
+      404 || 405 =>
+        'The pin save endpoint or record was not found. Check that the latest backend is deployed.',
+      422 =>
+        'Check the coordinates and use a unique name for a saved destination.',
+      429 => 'Too many requests. Wait a moment and try again.',
+      _ =>
+        'Could not save the pin (HTTP ${response.statusCode}). Please try again.',
+    });
   }
 
   static Future<dynamic> approveTrip(int id) async {

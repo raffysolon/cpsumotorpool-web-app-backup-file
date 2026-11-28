@@ -15,15 +15,14 @@ class _WebNotificationAudioPlayer implements NotificationAudioPlayer {
   static const _sampleRate = 22050;
   static final Map<NotificationSound, String> _waveData = {};
 
-  html.AudioElement? _currentAudio;
+  final html.AudioElement _audio = html.AudioElement();
 
   @override
   Future<void> play(NotificationSound sound, double volume) async {
-    final audio = html.AudioElement()
+    final audio = _audio
       ..src = _waveData.putIfAbsent(sound, () => _createWaveData(sound))
       ..preload = 'auto'
       ..volume = volume.clamp(0, 1).toDouble();
-    _currentAudio = audio;
 
     try {
       await audio.play();
@@ -35,7 +34,6 @@ class _WebNotificationAudioPlayer implements NotificationAudioPlayer {
       audio.pause();
       audio.removeAttribute('src');
       audio.load();
-      if (identical(_currentAudio, audio)) _currentAudio = null;
     }
   }
 

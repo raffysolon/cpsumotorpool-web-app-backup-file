@@ -227,7 +227,7 @@ class _NotificationSoundSettingsState extends State<NotificationSoundSettings> {
       Text(
         _audioReady
             ? 'Browser audio is enabled for this session.'
-            : 'Tap Test sound once to allow playback in this browser.',
+            : 'If your browser blocks sound, click the page or tap Test sound.',
         style: Theme.of(context).textTheme.bodySmall,
         textAlign: textAlign,
       );

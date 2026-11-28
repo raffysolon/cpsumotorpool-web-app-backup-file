@@ -1,3 +1,4 @@
+import 'package:cpsumotorpooladmin/services/api_config.dart';
 import 'dart:async';
 
 import 'package:cpsumotorpooladmin/services/api_reads.dart';
@@ -13,7 +14,9 @@ void main() {
   testWidgets('slow PDF downloads retain their 150-second allowance', (
     tester,
   ) async {
-    FlutterSecureStorage.setMockInitialValues({'auth_token': 'slow-pdf-test'});
+    FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:auth_token': 'slow-pdf-test',
+    });
     await http.runWithClient(
       () async {
         var complete = false;
@@ -47,36 +50,31 @@ void main() {
       }),
     );
   });
-  test(
-    'concurrent notification refreshes share one count and list request',
-    () async {
-      FlutterSecureStorage.setMockInitialValues({
-        'auth_token': 'notifications-test',
-      });
-      final paths = <String>[];
-      await http.runWithClient(
-        () async {
-          final controller = AdminNotificationsController.instance;
-          await Future.wait([
-            controller.refresh(),
-            controller.refresh(),
-            controller.refresh(),
-          ]);
-          expect(paths, [
-            '/api/notifications/unread-count',
-            '/api/notifications',
-          ]);
-        },
-        () => MockClient((request) async {
-          paths.add(request.url.path);
-          return http.Response(
-            request.url.path.endsWith('unread-count') ? '{"count":0}' : '[]',
-            200,
-          );
-        }),
-      );
-    },
-  );
+  test('concurrent notification refreshes share one inbox request', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      '${ApiConfig.storageNamespace}:auth_token': 'notifications-test',
+        '${ApiConfig.storageNamespace}:account_email': 'admin@example.test',
+    });
+    final paths = <String>[];
+    await http.runWithClient(
+      () async {
+        final controller = AdminNotificationsController.instance;
+        await Future.wait([
+          controller.refresh(),
+          controller.refresh(),
+          controller.refresh(),
+        ]);
+        expect(paths, ['/api/notifications']);
+      },
+      () => MockClient((request) async {
+        paths.add(request.url.path);
+        return http.Response(
+          request.url.path.endsWith('unread-count') ? '{"count":0}' : '[]',
+          200,
+        );
+      }),
+    );
+  });
   test('Retry-After supports seconds, server-relative dates and fallbacks', () {
     final now = DateTime.utc(2026, 11, 18, 13);
     expect(

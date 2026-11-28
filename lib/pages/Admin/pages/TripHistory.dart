@@ -25,6 +25,7 @@ class TripHistory extends StatelessWidget {
 class _TripHistoryData {
   const _TripHistoryData({
     required this.id,
+    required this.source,
     required this.driverName,
     required this.vehicle,
     required this.origin,
@@ -40,6 +41,7 @@ class _TripHistoryData {
   });
 
   final int id;
+  final String source;
   final String driverName;
   final String vehicle;
   final String origin;
@@ -78,6 +80,7 @@ class _TripHistoryData {
 
     return _TripHistoryData(
       id: int.tryParse('${json['id'] ?? 0}') ?? 0,
+      source: _text(json['source']).trim().toLowerCase(),
       driverName: _text(driver['name']),
       vehicle: [
         _text(vehicle['name']),
@@ -292,6 +295,14 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                 Icons.local_shipping_outlined,
                 [
                   _detail('Driver', trip.driverName),
+                  _detail(
+                    'Created by',
+                    trip.source == 'admin'
+                        ? 'Admin'
+                        : trip.source == 'driver'
+                        ? 'Driver'
+                        : 'Not recorded',
+                  ),
                   _detail('Vehicle', trip.vehicle),
                   _detail('Route', '${trip.origin} to ${trip.destination}'),
                   _detail('Purpose', trip.purpose),
@@ -638,13 +649,39 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
           const SizedBox(width: 12),
           Expanded(
             flex: 5,
-            child: Text(
-              trip.driverName.isEmpty ? 'Unknown Driver' : trip.driverName,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.navy,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trip.driverName.isEmpty ? 'Unknown Driver' : trip.driverName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.navy,
+                  ),
+                ),
+                if (trip.source == 'admin') ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Created by Admin',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Expanded(

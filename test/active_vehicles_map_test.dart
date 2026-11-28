@@ -74,10 +74,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(
-        find.byIcon(Icons.question_mark_rounded),
-        state == 'unassigned' ? findsOneWidget : findsNothing,
-      );
+      expect(find.byIcon(Icons.local_shipping_rounded), findsOneWidget);
       final tooltip = tester.widget<Tooltip>(
         find.descendant(
           of: find.byType(MarkerLayer),
@@ -141,7 +138,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is Tooltip &&
-            (widget.message?.contains('Status: Outdated GPS') ?? false),
+            (widget.message?.contains('GPS freshness: Outdated GPS') ?? false),
       ),
       findsOneWidget,
     );
@@ -150,6 +147,7 @@ void main() {
       matching: find.byWidgetPredicate(
         (widget) =>
             widget is Container &&
+            widget.key != const Key('vehicle-connectivity-dot') &&
             widget.decoration is BoxDecoration &&
             (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
       ),
@@ -232,6 +230,7 @@ void main() {
         matching: find.byWidgetPredicate(
           (widget) =>
               widget is Container &&
+              widget.key != const Key('vehicle-connectivity-dot') &&
               widget.decoration is BoxDecoration &&
               (widget.decoration! as BoxDecoration).shape == BoxShape.circle,
         ),
