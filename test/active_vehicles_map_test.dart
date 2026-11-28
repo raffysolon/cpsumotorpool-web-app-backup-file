@@ -97,9 +97,49 @@ void main() {
         tooltip.message,
         contains(state == 'stale' ? 'Outdated GPS' : 'Recent GPS'),
       );
+      expect(
+        tooltip.message,
+        contains('Last heartbeat: No heartbeat recorded'),
+      );
+      expect(tooltip.message, contains('Last GPS update:'));
       await tester.pumpWidget(const SizedBox());
     });
   }
+  testWidgets('tracker status shows a heartbeat without a GPS fix', (
+    tester,
+  ) async {
+    final vehicle = TrackedVehicle.fromJson({
+      'vehicle_id': 7,
+      'device_id': 'VEHICLE-01',
+      'vehicle_name': 'Hiace',
+      'vehicle_plate': 'ABC 1234',
+      'last_heartbeat_received_at': '2026-11-28 01:02:03',
+      'availability_status': 'online',
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActiveVehiclesMap(
+            loadVehicles: () async => [vehicle],
+            loadLocation: (_) async => null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Tracker status'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Last heartbeat: 2026-11-28 09:02:03 PHT · Online'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Last GPS update: No GPS recorded'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.local_shipping_rounded), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('retained GPS ages to gray during a rate-limit cooldown', (
     tester,
   ) async {

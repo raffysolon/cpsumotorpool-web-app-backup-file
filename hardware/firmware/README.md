@@ -36,7 +36,7 @@ Identical IDs are used for LTE/LoRa to allow backend deduplication. HTTP 409 or 
 - CRC detects radio corruption; it does NOT authenticate a radio peer. These ACKs are for a trusted bench environment; authenticated radio messages and replay protection are required before deployment in an untrusted environment.
 - Pi storage and SD archives grow without automatic retention cleanup.
 - Multiple-vehicle collisions, long-range performance, power interruption, carrier PPP reconnect behavior and physical SD durability are untested.
-- No cloud transfer-status endpoint is added by these files. OLED status describes recent packet activity, not full-trip completion. Dashboard integration remains pending.
+- OLED status describes recent packet activity. The matching Pi gateway reports its received-record queue to Admin Sync Logs. Neither view can determine how many records are still on the vehicle SD card.
 
 ## Bench checklist
 

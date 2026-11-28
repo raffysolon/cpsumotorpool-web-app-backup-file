@@ -24,9 +24,19 @@ def connect(path):
           record_id TEXT PRIMARY KEY, payload TEXT NOT NULL,
           state TEXT NOT NULL DEFAULT 'pending', received_at TEXT NOT NULL,
           error TEXT, UNIQUE(record_id));
+        CREATE INDEX IF NOT EXISTS records_state ON records(state);
+        CREATE TABLE IF NOT EXISTS sync_updates (
+          device_id TEXT PRIMARY KEY, revision INTEGER NOT NULL DEFAULT 1,
+          sent_revision INTEGER NOT NULL DEFAULT 0, upload_issue TEXT);
         CREATE TABLE IF NOT EXISTS unparsed (
           id INTEGER PRIMARY KEY, received_at TEXT NOT NULL, raw TEXT NOT NULL);
     ''')
+    with db:
+        db.execute("""
+            INSERT OR IGNORE INTO sync_updates(device_id)
+            SELECT DISTINCT json_extract(payload, '$.device_id')
+            FROM records WHERE state IN ('pending', 'review')
+        """)
     return db
 
 
@@ -63,8 +73,15 @@ def enqueue(db, payload):
                          (payload['record_id'],)).fetchone()
         if old and old[0] != encoded:
             raise ValueError('Conflicting data for existing record ID')
-        db.execute('INSERT OR IGNORE INTO records(record_id,payload,received_at) VALUES(?,?,?)',
-                   (payload['record_id'], encoded, datetime.now(timezone.utc).isoformat()))
+        inserted = db.execute(
+            'INSERT OR IGNORE INTO records(record_id,payload,received_at) VALUES(?,?,?)',
+            (payload['record_id'], encoded, datetime.now(timezone.utc).isoformat()),
+        )
+        if inserted.rowcount:
+            db.execute("""
+                INSERT INTO sync_updates(device_id) VALUES(?)
+                ON CONFLICT(device_id) DO UPDATE SET revision=revision+1
+            """, (payload['device_id'],))
 
 
 def acknowledged(response, record_id):
@@ -85,32 +102,105 @@ def serial_ack(db, payload):
     return f"ACK2|{payload['device_id']}|{payload['record_id']}|{phase}\n".encode('ascii')
 
 
-def upload_worker(path, url, key, stop):
+def record_upload_result(db, device_id, record_id, state, error=None, issue=None):
+    with db:
+        db.execute('UPDATE records SET state=?,error=? WHERE record_id=?',
+                   (state, error, record_id))
+        db.execute("""
+            INSERT INTO sync_updates(device_id,upload_issue) VALUES(?,?)
+            ON CONFLICT(device_id) DO UPDATE SET revision=revision+1,
+                upload_issue=excluded.upload_issue
+            WHERE sync_updates.upload_issue IS NOT excluded.upload_issue
+                  OR excluded.upload_issue IS NULL
+        """, (device_id, issue))
+
+
+def pending_progress(db):
+    snapshots = db.execute("""
+        SELECT device_id, revision, upload_issue FROM sync_updates
+        WHERE revision != sent_revision ORDER BY device_id LIMIT 25
+    """).fetchall()
+    if not snapshots:
+        return [], snapshots
+
+    placeholders = ','.join('?' for _ in snapshots)
+    counts = {
+        (device, state): count
+        for device, state, count in db.execute(f"""
+            SELECT json_extract(payload, '$.device_id'), state, count(*)
+            FROM records WHERE state IN ('pending', 'review')
+              AND json_extract(payload, '$.device_id') IN ({placeholders})
+            GROUP BY 1, 2
+        """, [device for device, _, _ in snapshots])
+    }
+    reports = []
+    for device, _, issue in snapshots:
+        pending = counts.get((device, 'pending'), 0)
+        review = counts.get((device, 'review'), 0)
+        if pending:
+            state = issue or 'receiving'
+        elif review:
+            state = 'needs_review'
+        else:
+            state = 'uploaded'
+        reports.append(dict(device_id=device, state=state,
+                            pending_count=pending, review_count=review))
+    return reports, snapshots
+
+
+def report_progress(db, session, url):
+    import requests
+    reports, snapshots = pending_progress(db)
+    if not reports:
+        return False
+    try:
+        response = session.post(url, json={'devices': reports}, timeout=(3, 4),
+                                allow_redirects=False)
+        if response.status_code != 204:
+            return True
+    except requests.RequestException:
+        return True
+    with db:
+        db.executemany(
+            'UPDATE sync_updates SET sent_revision=? WHERE device_id=?',
+            [(revision, device) for device, revision, _ in snapshots],
+        )
+    return True
+
+
+def upload_worker(path, url, status_url, key, stop):
     import requests
     db = connect(path)
     with requests.Session() as session:
         session.headers.update({'X-Gateway-Key': key, 'Accept': 'application/json'})
+        next_progress = 0
         while not stop.is_set():
+            if time.monotonic() >= next_progress:
+                if report_progress(db, session, status_url):
+                    next_progress = time.monotonic() + 15
             row = db.execute("SELECT record_id,payload FROM records WHERE state='pending' ORDER BY rowid LIMIT 1").fetchone()
             if not row:
                 stop.wait(2)
                 continue
             record_id, encoded = row
+            payload = json.loads(encoded)
+            device_id = payload['device_id']
             delay = 1  # Keep below the backend's 120 requests/minute limit.
             try:
-                response = session.post(url, json=json.loads(encoded), timeout=(10, 30))
+                response = session.post(url, json=payload, timeout=(10, 30))
                 if acknowledged(response, record_id):
-                    with db:
-                        db.execute("UPDATE records SET state='cloud_saved',error=NULL WHERE record_id=?", (record_id,))
+                    record_upload_result(db, device_id, record_id, 'cloud_saved')
                     print(f'CLOUD_SAVED {record_id}', flush=True)
                 else:
                     # Bad records remain available for review instead of blocking the queue.
                     state = 'review' if response.status_code in (404, 409, 422) else 'pending'
-                    with db:
-                        db.execute('UPDATE records SET state=?,error=? WHERE record_id=?',
-                                   (state, f'HTTP {response.status_code}; acknowledgment not confirmed', record_id))
+                    record_upload_result(db, device_id, record_id, state,
+                                         f'HTTP {response.status_code}; acknowledgment not confirmed',
+                                         'upload_delayed' if state == 'pending' else None)
                     delay = 60
             except requests.RequestException:
+                record_upload_result(db, device_id, record_id, 'pending',
+                                     'Cloud connection unavailable', 'waiting_for_connection')
                 delay = 30
                 print('CLOUD_UNAVAILABLE: records remain on Pi', flush=True)
             stop.wait(delay)
@@ -123,13 +213,14 @@ def main():
     if not key:
         raise SystemExit('Set GATEWAY_API_KEY in the Pi environment.')
     url = os.getenv('GPS_API_URL', 'https://cpsu-motorpool-backend.onrender.com/api/gps/location')
-    if not url.startswith('https://'):
-        raise SystemExit('GPS_API_URL must use HTTPS.')
+    status_url = os.getenv('GPS_SYNC_STATUS_URL', url.rsplit('/', 1)[0] + '/sync-status')
+    if not url.startswith('https://') or not status_url.startswith('https://'):
+        raise SystemExit('Gateway API URLs must use HTTPS.')
     path = Path(os.getenv('GATEWAY_DB', str(Path.home() / 'motorpool-gateway' / 'gateway.sqlite')))
     path.parent.mkdir(parents=True, exist_ok=True)
     db = connect(path)
     stop = threading.Event()
-    worker = threading.Thread(target=upload_worker, args=(path, url, key, stop), daemon=True)
+    worker = threading.Thread(target=upload_worker, args=(path, url, status_url, key, stop), daemon=True)
     worker.start()
     try:
         while True:

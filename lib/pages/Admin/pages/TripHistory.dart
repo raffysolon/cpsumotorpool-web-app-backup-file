@@ -9,6 +9,8 @@ import 'package:cpsumotorpooladmin/services/trip_service.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 import 'package:cpsumotorpooladmin/widgets/interaction_loading_overlay.dart';
 import 'package:cpsumotorpooladmin/widgets/skeleton_widgets_web.dart';
+import 'package:cpsumotorpooladmin/widgets/recorded_trip_route.dart';
+import 'package:cpsumotorpooladmin/widgets/trip_activity_timeline.dart';
 
 class TripHistory extends StatelessWidget {
   const TripHistory({super.key});
@@ -340,6 +342,16 @@ class _TripHistoryContentState extends State<_TripHistoryContent> {
                 _detail('Arrival at destination', trip.outboundArrival),
                 _detail('Return departure', trip.returnDeparture),
                 _detail('Return arrival', trip.returnArrival),
+              ]),
+              const SizedBox(height: 14),
+              _detailSection('Trip Activity Timeline', Icons.history, [
+                TripActivityTimeline(tripId: trip.id),
+                const SizedBox(height: 14),
+              ]),
+              const SizedBox(height: 14),
+              _detailSection('Actual Route', Icons.map_outlined, [
+                RecordedTripRoute(tripId: trip.id),
+                const SizedBox(height: 14),
               ]),
             ],
           ),

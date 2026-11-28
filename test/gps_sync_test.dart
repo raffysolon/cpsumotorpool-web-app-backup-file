@@ -118,6 +118,31 @@ void main() {
       }),
     );
   });
+  test('gateway status includes a vehicle before its first GPS upload', () async {
+    await http.runWithClient(
+      () async {
+        final result = await GpsSyncService.getLogs(1, summary: true);
+        final row = (result['data'] as List).single;
+        expect(row['vehicle']['name'], 'Campus Van');
+        expect(row['driver_name'], 'Assigned Driver');
+        expect(row['received_at'], isNull);
+        expect(row['transfer']['state'], 'receiving');
+        expect(row['transfer']['pending_count'], 3);
+      },
+      () => MockClient((request) async {
+        final response = switch (request.url.pathSegments.last) {
+          'devices' =>
+            '{"data":[{"id":9,"device_id":"TRACKER","vehicle_id":7}]}',
+          'vehicles' => '{"data":[{"id":7,"name":"Campus Van"}]}',
+          'coordinator-assignments' =>
+            '[{"vehicle_id":7,"campus_name":"San Carlos","driver":{"name":"Assigned Driver"}}]',
+          _ =>
+            '{"data":[],"transfers":[{"device_registry_id":9,"state":"receiving","pending_count":3}]}',
+        };
+        return http.Response(response, 200);
+      }),
+    );
+  });
   setUpAll(() async {
     final textFont = FontLoader('Play')
       ..addFont(

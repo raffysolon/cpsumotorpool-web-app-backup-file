@@ -17,7 +17,7 @@ This gateway retains legacy `Raw message:` packets in SQLite for review. It inte
 - A record becomes cloud_saved only after HTTP 200/201 AND a matching acknowledged_record_id.
 - Failed uploads remain on disk; 404/409/422 records are held for review. Fix their underlying issue before manually requeuing them.
 - No vehicle SD records are deleted. PI_SAVED is a local console message. The script additionally writes ACK2 PI/CLOUD confirmations over USB for the matching admin firmware to relay.
-- This version does not request SD history or publish transfer-session status to the web dashboard. Vehicle firmware initiates retries. Receipt of GPS data alone cannot prove an entire SD transfer completed.
+- Vehicle firmware initiates SD retries. Gateway reports describe records received by the Pi. The full vehicle SD backlog is unknown to the gateway.
 
 ## Pi installation (after firmware compatibility is ready)
 
@@ -34,6 +34,13 @@ Use a stable `/dev/serial/by-id/...` path when available. Only one gateway proce
 
 Local-IP SSH normally requires network reachability to the Pi. Being on another Wi-Fi does not erase its files. Use the original network, direct console access, or an already configured remote-access connection to retrieve the original script. This preparation does not configure remote access.
 
-## Dashboard status contract still needed
+## Admin Sync Logs
 
-A real transfer indicator needs gateway ID, vehicle/device ID, sync session ID, received count, pending cloud count, state and last update time. Stale sessions must show interrupted/unknown rather than a perpetual spinner. Completion must be explicitly confirmed, not inferred from silence. Vehicle-to-Pi and Pi-to-cloud progress must remain separate, especially while Pi internet is unavailable.
+Deploy the backend migration and updated admin web app before installing this gateway version.
+The Pi reports changed device queues to `/api/gps/sync-status` with the same trusted
+gateway key. Set `GPS_SYNC_STATUS_URL` if the status endpoint is at a different path.
+
+- **Receiving via LoRa** means records arrived on the Pi and are queued.
+- **Waiting for connection** means an upload failed to reach the backend. During a total outage, the web app can only show the last report. The Pi reports its saved status once contact resumes.
+- **Upload delayed** means the backend response did not confirm the record. **Needs review** identifies records that require attention after the normal upload queue has drained.
+- **Uploaded** means the Pi has no remaining queued or review records for that device and all uploads it processed were acknowledged by the backend.

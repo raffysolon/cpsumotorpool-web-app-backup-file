@@ -11,8 +11,37 @@ class DestinationPinException implements Exception {
   final String message;
 }
 
+class TripRequestException implements Exception {
+  const TripRequestException(this.message);
+  final String message;
+}
+
 class TripService {
   static String get baseUrl => ApiConfig.apiBaseUrl;
+
+  static Future<Map<String, dynamic>> getTripActivity(int tripId) async {
+    final response = await ApiReads.get(
+      ApiConfig.apiUri('trips/$tripId/activity'),
+      headers: await _headers(),
+    );
+    return await _parseResponse(response) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getTripEta(int tripId) async {
+    final response = await ApiReads.get(
+      ApiConfig.apiUri('trips/$tripId/eta'),
+      headers: await _headers(),
+    );
+    return await _parseResponse(response) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getRecordedRoute(int tripId) async {
+    final response = await ApiReads.get(
+      ApiConfig.apiUri('trips/$tripId/recorded-route'),
+      headers: await _headers(),
+    );
+    return await _parseResponse(response) as Map<String, dynamic>;
+  }
 
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -275,6 +304,7 @@ class TripService {
     required String purpose,
     required String scheduledDeparture,
     String? returnScheduledDeparture,
+    String? scheduledEndAt,
     required List<Map<String, String>> passengers,
   }) async {
     final response = await http.post(
@@ -286,10 +316,17 @@ class TripService {
         'purpose': purpose,
         'scheduled_departure': scheduledDeparture,
         'return_scheduled_departure': returnScheduledDeparture,
+        'scheduled_end_at': scheduledEndAt,
         'passengers': passengers,
       }),
     );
 
+    if (response.statusCode == 422) {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['message'] is String) {
+        throw TripRequestException(body['message'] as String);
+      }
+    }
     return _parseResponse(response);
   }
 

@@ -126,7 +126,19 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
     );
     final plate = _label(vehicle['plate_no'], '');
     final title = plate.isEmpty ? vehicleName : '$vehicleName · $plate';
-    final uploaded = _time(record['received_at'] ?? record['created_at']);
+    final uploaded = records
+        .map((entry) => entry['received_at'] ?? entry['created_at'])
+        .where((timestamp) => timestamp != null)
+        .firstOrNull;
+    Map? transfer;
+    for (final report
+        in records.map((entry) => entry['transfer']).whereType<Map>()) {
+      if (transfer == null ||
+          '${report['reported_at']}'.compareTo('${transfer['reported_at']}') >
+              0) {
+        transfer = report;
+      }
+    }
     final recentLoRa = records.any((entry) {
       if (entry['upload_source'] != 'recovered_lora') return false;
       final received = DateTime.tryParse('${entry['received_at']}');
@@ -137,8 +149,10 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
     final uploadStatus = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(uploaded),
-        if (recentLoRa) ...[
+        Text(uploaded == null ? 'No upload yet' : _time(uploaded)),
+        if (transfer != null)
+          _transferStatus(transfer)
+        else if (recentLoRa) ...[
           const SizedBox(height: 4),
           const Text(
             'LoRa data received',
@@ -189,6 +203,58 @@ class _SyncLogsState extends State<SyncLogs> with WidgetsBindingObserver {
             Align(alignment: Alignment.centerRight, child: details),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _transferStatus(Map report) {
+    final timestamp = DateTime.tryParse('${report['reported_at']}');
+    final state = report['state'];
+    final stale =
+        (state == 'receiving' ||
+            state == 'waiting_for_connection' ||
+            state == 'upload_delayed') &&
+        (timestamp == null ||
+            DateTime.now().difference(timestamp) > const Duration(seconds: 90));
+    final label = stale
+        ? 'Gateway status delayed'
+        : switch (state) {
+            'receiving' => 'Receiving via LoRa',
+            'waiting_for_connection' => 'Waiting for connection',
+            'upload_delayed' => 'Upload delayed',
+            'needs_review' => 'Needs review',
+            'uploaded' => 'Uploaded',
+            _ => 'Gateway status unavailable',
+          };
+    final pending = int.tryParse('${report['pending_count']}') ?? 0;
+    final review = int.tryParse('${report['review_count']}') ?? 0;
+    final counts = [
+      if (pending > 0) '$pending queued',
+      if (review > 0) '$review for review',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: state == 'uploaded' && !stale
+                  ? AppColors.primary
+                  : AppColors.navy,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          if (counts.isNotEmpty)
+            Text(stale ? 'Last reported: $counts' : counts),
+          if (timestamp != null)
+            Text(
+              'Reported ${_time(timestamp)}',
+              style: const TextStyle(color: AppColors.mutedDark, fontSize: 11),
+            ),
+        ],
       ),
     );
   }

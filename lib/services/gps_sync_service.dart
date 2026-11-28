@@ -58,6 +58,30 @@ class GpsSyncService {
     if (body is! Map<String, dynamic> || body['data'] is! List) {
       throw const FormatException('Invalid GPS sync response.');
     }
+    if (summary && body['transfers'] is List) {
+      final records = (body['data'] as List)
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .toList();
+      final reports = {
+        for (final report in (body['transfers'] as List).whereType<Map>())
+          if (report['device_registry_id'] != null)
+            '${report['device_registry_id']}': report,
+      };
+      for (final record in records) {
+        final transfer = reports.remove('${record['device_registry_id']}');
+        if (transfer != null) record['transfer'] = transfer;
+      }
+      // A vehicle can have queued LoRa records before its first cloud upload.
+      records.addAll([
+        for (final report in reports.values)
+          {
+            'device_registry_id': report['device_registry_id'],
+            'transfer': report,
+          },
+      ]);
+      body['data'] = records;
+    }
     if ((body['data'] as List).isEmpty) return body;
     // Current registry labels are separate from historical GPS capture data.
     final assignmentsResult =

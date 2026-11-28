@@ -7,6 +7,15 @@ import 'package:cpsumotorpooladmin/pages/services/auth_service.dart';
 import 'package:cpsumotorpooladmin/services/device_service.dart';
 import 'api_config.dart';
 
+DateTime? _parseUtcTimestamp(Object? value) {
+  if (value is! String || value.trim().isEmpty) return null;
+  final timestamp = value.trim();
+  final hasOffset = RegExp(
+    r'[Tt ].*(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$',
+  ).hasMatch(timestamp);
+  return DateTime.tryParse(hasOffset ? timestamp : '${timestamp}Z')?.toUtc();
+}
+
 /// Authentication changes must also clear locations already displayed by a map.
 class GpsAccessException implements Exception {
   const GpsAccessException(this.message);
@@ -52,16 +61,6 @@ class GpsLocation {
         age <= const Duration(seconds: 60);
   }
 
-  static DateTime _parseRecordedAt(String value) {
-    final timestamp = value.trim();
-    // Laravel/database timestamps without an offset follow the backend's UTC
-    // convention. DateTime.parse otherwise interprets them in the viewer's zone.
-    final hasOffset = RegExp(
-      r'[Tt ].*(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$',
-    ).hasMatch(timestamp);
-    return DateTime.parse(hasOffset ? timestamp : '${timestamp}Z').toUtc();
-  }
-
   factory GpsLocation.fromJson(Map<String, dynamic> json) {
     final latitude = double.tryParse(json['latitude'].toString());
     final longitude = double.tryParse(json['longitude'].toString());
@@ -83,7 +82,9 @@ class GpsLocation {
       latitude: latitude,
       longitude: longitude,
       satellites: (json['satellites'] as num?)?.toInt(),
-      recordedAt: _parseRecordedAt(json['recorded_at'].toString()),
+      recordedAt:
+          _parseUtcTimestamp(json['recorded_at']) ??
+          (throw const FormatException('Invalid GPS recording time.')),
       tripContextAvailable: json.containsKey('trip'),
       trip: json['trip'] is Map<String, dynamic>
           ? GpsTrip.fromJson(json['trip'] as Map<String, dynamic>)
@@ -97,6 +98,8 @@ class GpsTrip {
     required this.id,
     required this.status,
     required this.scheduledDeparture,
+    this.destination,
+    this.activeMovementNo,
     this.actualDeparture,
     this.lateMinutes,
     this.departureOverdue = false,
@@ -105,6 +108,8 @@ class GpsTrip {
   final int id;
   final String status;
   final DateTime scheduledDeparture;
+  final String? destination;
+  final int? activeMovementNo;
   final DateTime? actualDeparture;
   final int? lateMinutes;
   final bool departureOverdue;
@@ -113,6 +118,8 @@ class GpsTrip {
     id: (json['id'] as num).toInt(),
     status: json['status'].toString(),
     scheduledDeparture: DateTime.parse(json['scheduled_departure'].toString()),
+    destination: json['destination'] as String?,
+    activeMovementNo: (json['active_movement_no'] as num?)?.toInt(),
     actualDeparture: json['actual_departure_at'] == null
         ? null
         : DateTime.parse(json['actual_departure_at'].toString()),
@@ -129,6 +136,7 @@ class TrackedVehicle {
     required this.plate,
     required this.name,
     this.availabilityStatus = TrackerAvailability.unreachable,
+    this.lastHeartbeatReceivedAt,
   });
 
   final int vehicleId;
@@ -136,6 +144,7 @@ class TrackedVehicle {
   final String plate;
   final String name;
   final TrackerAvailability availabilityStatus;
+  final DateTime? lastHeartbeatReceivedAt;
 
   factory TrackedVehicle.fromJson(Map<String, dynamic> json) {
     return TrackedVehicle(
@@ -144,6 +153,9 @@ class TrackedVehicle {
       plate: json['vehicle_plate']?.toString() ?? 'Unknown plate',
       name: json['vehicle_name']?.toString() ?? 'Unknown vehicle',
       availabilityStatus: TrackerAvailability.fromApi(json),
+      lastHeartbeatReceivedAt: _parseUtcTimestamp(
+        json['last_heartbeat_received_at'],
+      ),
     );
   }
 }

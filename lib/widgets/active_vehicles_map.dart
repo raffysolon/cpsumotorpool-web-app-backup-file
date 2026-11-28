@@ -8,6 +8,7 @@ import '../models/tracker_availability.dart';
 import '../services/gps_service.dart';
 import 'app_shell.dart';
 import 'heartbeat_indicator.dart';
+import 'active_trip_eta.dart';
 
 // === Vehicle with its latest GPS location ===
 
@@ -46,6 +47,8 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
   Timer? _refreshTimer;
 
   List<VehicleTrackingData> _trackedVehicles = [];
+  List<TrackedVehicle> _registeredVehicles = [];
+  int? _selectedTripId;
 
   bool _isLoading = true;
   bool _isFetching = false;
@@ -54,8 +57,6 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
 
   String? _errorMessage;
   DateTime? _lastSuccessfulRefresh;
-
-  int _registeredVehicleCount = 0;
 
   @override
   void initState() {
@@ -131,7 +132,7 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
 
       setState(() {
         _trackedVehicles = updatedVehicles;
-        _registeredVehicleCount = vehicles.length;
+        _registeredVehicles = vehicles;
         _isLoading = false;
         _errorMessage = failures.isEmpty ? null : failures.join('\n');
         if (failures.isEmpty) _lastSuccessfulRefresh = DateTime.now();
@@ -146,7 +147,7 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
         _errorMessage = error.toString().replaceFirst('Exception: ', '');
         if (error is GpsAccessException) {
           _trackedVehicles = [];
-          _registeredVehicleCount = 0;
+          _registeredVehicles = [];
           _lastSuccessfulRefresh = null;
           _hasCentered = false;
         }
@@ -206,6 +207,61 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
         '${twoDigits(local.second)} PHT';
   }
 
+  String _trackingStatus(TrackedVehicle vehicle, GpsLocation? location) {
+    final heartbeat = vehicle.lastHeartbeatReceivedAt;
+    final heartbeatTime = heartbeat == null
+        ? 'No heartbeat recorded'
+        : _formatRecordedAt(heartbeat);
+    final gpsTime = location == null
+        ? 'No GPS recorded'
+        : _formatRecordedAt(location.recordedAt);
+    return 'Last heartbeat: $heartbeatTime · ${vehicle.availabilityStatus.label}\n'
+        'Last GPS update: $gpsTime'
+        '${location != null && !location.isRecent ? ' · Last known location' : ''}';
+  }
+
+  void _showTrackerStatus() {
+    final locations = {
+      for (final item in _trackedVehicles)
+        item.vehicle.vehicleId: item.location,
+    };
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tracker status'),
+        scrollable: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final vehicle in _registeredVehicles)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${vehicle.name} · ${vehicle.plate}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      _trackingStatus(vehicle, locations[vehicle.vehicleId]),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -219,30 +275,34 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
     final recentCount = _trackedVehicles
         .where((vehicle) => vehicle.location.isRecent)
         .length;
-    final onlineCount = _trackedVehicles
+    final onlineCount = _registeredVehicles
         .where(
-          (vehicle) =>
-              vehicle.vehicle.availabilityStatus == TrackerAvailability.online,
+          (vehicle) => vehicle.availabilityStatus == TrackerAvailability.online,
         )
         .length;
-    final unstableCount = _trackedVehicles
+    final unstableCount = _registeredVehicles
         .where(
           (vehicle) =>
-              vehicle.vehicle.availabilityStatus ==
-              TrackerAvailability.unstable,
+              vehicle.availabilityStatus == TrackerAvailability.unstable,
         )
         .length;
-    final unreachableCount = _trackedVehicles
+    final unreachableCount = _registeredVehicles
         .where(
           (vehicle) =>
-              vehicle.vehicle.availabilityStatus ==
-              TrackerAvailability.unreachable,
+              vehicle.availabilityStatus == TrackerAvailability.unreachable,
         )
         .length;
     DateTime? latestGps;
+    VehicleTrackingData? selected;
     for (final item in _trackedVehicles) {
       if (latestGps == null || item.location.recordedAt.isAfter(latestGps)) {
         latestGps = item.location.recordedAt;
+      }
+      final trip = item.location.trip;
+      if (trip != null &&
+          trip.id == _selectedTripId &&
+          trip.status == 'active') {
+        selected = item;
       }
     }
 
@@ -287,7 +347,11 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                     height: 44,
                     alignment: Alignment.center,
                     child: Tooltip(
-                      triggerMode: TooltipTriggerMode.tap,
+                      triggerMode:
+                          widget.interactive &&
+                              item.location.trip?.status == 'active'
+                          ? TooltipTriggerMode.manual
+                          : TooltipTriggerMode.tap,
                       message:
                           '${item.vehicle.name}\n'
                           'Plate: ${item.vehicle.plate}\n'
@@ -295,16 +359,24 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                           'Latitude: ${item.location.latitude.toStringAsFixed(6)}\n'
                           'Longitude: ${item.location.longitude.toStringAsFixed(6)}\n'
                           'Satellites: ${item.location.satellites ?? 'Unknown'}\n'
-                          'Last received: ${_formatRecordedAt(item.location.recordedAt)}\n'
-                          'Heartbeat availability: ${item.vehicle.availabilityStatus.label}\n'
+                          '${_trackingStatus(item.vehicle, item.location)}\n'
                           'GPS freshness: ${item.location.isRecent ? 'Recent GPS' : 'Outdated GPS'}\n'
                           '${_tripStatus(item.location)}',
-                      child: TrackerVehicleMarker(
-                        key: ValueKey(
-                          'vehicle-marker-pin-${item.vehicle.deviceId}',
+                      child: GestureDetector(
+                        onTap:
+                            widget.interactive &&
+                                item.location.trip?.status == 'active'
+                            ? () => setState(
+                                () => _selectedTripId = item.location.trip?.id,
+                              )
+                            : null,
+                        child: TrackerVehicleMarker(
+                          key: ValueKey(
+                            'vehicle-marker-pin-${item.vehicle.deviceId}',
+                          ),
+                          isRecent: item.location.isRecent,
+                          availabilityStatus: item.vehicle.availabilityStatus,
                         ),
-                        isRecent: item.location.isRecent,
-                        availabilityStatus: item.vehicle.availabilityStatus,
                       ),
                     ),
                   ),
@@ -410,7 +482,7 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                               : _errorMessage != null
                               ? 'GPS refresh failed'
                               : '$recentCount recent GPS / '
-                                    '$_registeredVehicleCount registered',
+                                    '${_registeredVehicles.length} registered',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -450,6 +522,12 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                               fontSize: 11,
                               color: AppColors.mutedDark,
                             ),
+                          ),
+                        if (widget.interactive &&
+                            _registeredVehicles.isNotEmpty)
+                          TextButton(
+                            onPressed: _showTrackerStatus,
+                            child: const Text('Tracker status'),
                           ),
                       ],
                     ),
@@ -502,6 +580,32 @@ class _ActiveVehiclesMapState extends State<ActiveVehiclesMap>
                     child: const Text('Retry'),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+        if (selected != null && _errorMessage == null)
+          Positioned(
+            bottom: 18,
+            left: 12,
+            right: 12,
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: ActiveTripEta(
+                  key: ValueKey((
+                    selected.location.trip!.id,
+                    selected.location.trip!.activeMovementNo,
+                  )),
+                  vehicleName: selected.vehicle.name,
+                  location: selected.location,
+                  trackingStatus: _trackingStatus(
+                    selected.vehicle,
+                    selected.location,
+                  ),
+                  onClose: () => setState(() => _selectedTripId = null),
+                ),
               ),
             ),
           ),
