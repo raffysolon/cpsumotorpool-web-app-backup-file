@@ -44,7 +44,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
   TimeOfDay _departureTime = TimeOfDay.fromDateTime(DateTime.now());
   DateTime? _returnDate;
   TimeOfDay? _returnTime;
-  int _estimatedTripMinutes = 240;
   final List<Map<String, String>> _passengers =
       []; // Changed to store name and designation
 
@@ -382,25 +381,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
               onTimeChanged: (value) => setState(() => _departureTime = value),
             ),
             _buildOptionalReturnField(),
-            TextFormField(
-              initialValue: (_estimatedTripMinutes / 60).toString(),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Estimated trip duration (hours)',
-                helperText:
-                    'Count from departure until the trip ends, including the return leg.',
-                helperMaxLines: 2,
-              ),
-              onChanged: (value) =>
-                  _estimatedTripMinutes = _tripDurationMinutes(value) ?? 0,
-              validator: (value) {
-                return _tripDurationMinutes(value) == null
-                    ? 'Enter a duration between 1 minute and 168 hours.'
-                    : null;
-              },
-            ),
             const SizedBox(height: 14),
             _buildPrimaryButton('Continue to Passengers', _nextStep),
           ],
@@ -1100,14 +1080,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
     setState(() => _step = (_step + 1).clamp(0, 2));
   }
 
-  int? _tripDurationMinutes(String? value) {
-    final hours = double.tryParse(value?.trim() ?? '');
-    if (hours == null || !hours.isFinite || hours < 1 / 60 || hours > 168) {
-      return null;
-    }
-    return (hours * 60).round();
-  }
-
   Future<void> _submitTicket() async {
     if (_vehicleId == null || _isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -1136,9 +1108,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         purpose: _purposeController.text.trim(),
         scheduledDeparture: scheduledDeparture,
         returnScheduledDeparture: returnScheduledDeparture,
-        scheduledEndAt: DateTime.parse(
-          scheduledDeparture,
-        ).add(Duration(minutes: _estimatedTripMinutes)).toIso8601String(),
         passengers: List<Map<String, String>>.from(_passengers),
       );
       if (!mounted) return;

@@ -304,7 +304,6 @@ class TripService {
     required String purpose,
     required String scheduledDeparture,
     String? returnScheduledDeparture,
-    String? scheduledEndAt,
     required List<Map<String, String>> passengers,
   }) async {
     final response = await http.post(
@@ -316,7 +315,6 @@ class TripService {
         'purpose': purpose,
         'scheduled_departure': scheduledDeparture,
         'return_scheduled_departure': returnScheduledDeparture,
-        'scheduled_end_at': scheduledEndAt,
         'passengers': passengers,
       }),
     );

@@ -98,6 +98,7 @@ class _ActiveTripEtaState extends State<ActiveTripEta> {
     final status = _estimate?['status'];
     final arrival = DateTime.tryParse('${_estimate?['arrival_at']}');
     final recorded = DateTime.tryParse('${_estimate?['gps_recorded_at']}');
+    final speed = _estimate?['speed_kph'] as num?;
     final latest = widget.location.recordedAt;
     final fresh = widget.location.isRecent;
     final now = DateTime.now();
@@ -158,7 +159,8 @@ class _ActiveTripEtaState extends State<ActiveTripEta> {
                       'Last GPS update: ${pht(latest)}${!fresh ? ' · outdated' : ''}') +
                   (recorded == null
                       ? ''
-                      : '\nEstimate based on GPS at ${pht(recorded)}'),
+                      : '\nEstimate based on GPS at ${pht(recorded)}'
+                            '${speed == null ? '' : ' · ${speed.toStringAsFixed(1)} km/h'}'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
