@@ -195,7 +195,9 @@ class NotificationSoundService {
     }
     if (!_activePreferences.enabled ||
         _isPlaying ||
-        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        (!kIsWeb &&
+            WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed)) {
       return;
     }
 

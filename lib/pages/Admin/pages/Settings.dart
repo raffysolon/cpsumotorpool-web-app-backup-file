@@ -1,7 +1,6 @@
 // ignore_for_file: file_names
 
 import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
-import 'package:cpsumotorpooladmin/widgets/saved_destinations_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/admin_layout.dart';
 import 'dart:convert';
@@ -113,17 +112,6 @@ class _SettingsState extends State<Settings> {
                         _saving ? 'Sending...' : 'Send password reset email',
                       ),
                     ),
-                  ),
-                ]),
-                const SizedBox(height: 20),
-                _section('Saved Destinations', [
-                  OutlinedButton.icon(
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (_) => const SavedDestinationsDialog(),
-                    ),
-                    icon: const Icon(Icons.place_outlined),
-                    label: const Text('Manage destinations'),
                   ),
                 ]),
               ],

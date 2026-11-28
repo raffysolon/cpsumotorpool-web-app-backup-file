@@ -22,187 +22,197 @@ Future<LatLng?> showDestinationPinDialog(
     themes: InheritedTheme.capture(from: context, to: navigator.context),
     barrierDismissible: false,
     builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text('Set destination pin: $destination'),
-        scrollable: true,
-        content: SizedBox(
-          width: 820,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (savedDestinations != null)
-                FutureBuilder(
-                  future: savedDestinations,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return const Text(
-                        'Saved destinations are unavailable. You can still choose a pin on the map.',
-                      );
-                    }
-                    final destinations = snapshot.data;
-                    if (destinations == null || destinations.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return DropdownButton<int>(
-                      isExpanded: true,
-                      hint: const Text('Choose a saved destination'),
-                      items: [
-                        for (var i = 0; i < destinations.length; i++)
-                          DropdownMenuItem(
-                            value: i,
-                            child: Text(
-                              '${destinations[i]['name']}',
-                              overflow: TextOverflow.ellipsis,
+      builder: (context, setState) => PopScope(
+        canPop: !saving,
+        child: AlertDialog(
+          title: Text('Set destination pin: $destination'),
+          scrollable: true,
+          content: SizedBox(
+            width: 820,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (savedDestinations != null)
+                  FutureBuilder(
+                    future: savedDestinations,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const Text(
+                          'Saved destinations are unavailable. You can still choose a pin on the map.',
+                        );
+                      }
+                      final destinations = snapshot.data;
+                      if (destinations == null || destinations.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return DropdownButton<int>(
+                        isExpanded: true,
+                        hint: const Text('Choose a saved destination'),
+                        items: [
+                          for (var i = 0; i < destinations.length; i++)
+                            DropdownMenuItem(
+                              value: i,
+                              child: Text(
+                                '${destinations[i]['name']}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                      ],
-                      onChanged: saving
-                          ? null
-                          : (index) {
-                              if (index == null) return;
-                              final destination = destinations[index];
-                              final point = LatLng(
-                                double.parse('${destination['latitude']}'),
-                                double.parse('${destination['longitude']}'),
-                              );
-                              setState(() => pin = point);
-                              mapController.move(point, 17);
-                            },
-                    );
-                  },
-                ),
-              if (mapTilerKey.isNotEmpty)
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Street')),
-                    ButtonSegment(value: true, label: Text('Satellite')),
-                  ],
-                  selected: {satellite},
-                  onSelectionChanged: (selection) =>
-                      setState(() => satellite = selection.single),
-                ),
-              const Text(
-                'Use + to see street names, then tap the exact destination.',
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: (MediaQuery.sizeOf(context).height * 0.55)
-                    .clamp(230.0, 540.0)
-                    .toDouble(),
-                child: FlutterMap(
-                  mapController: mapController,
-                  options: MapOptions(
-                    initialCenter: initialPin ?? const LatLng(10.30, 123.00),
-                    initialZoom: initialPin == null ? 10 : 17,
-                    minZoom: 5,
-                    maxZoom: 19,
-                    onTap: (_, position) {
-                      if (!saving) setState(() => pin = position);
+                        ],
+                        onChanged: saving
+                            ? null
+                            : (index) {
+                                if (index == null) return;
+                                final destination = destinations[index];
+                                final point = LatLng(
+                                  double.parse('${destination['latitude']}'),
+                                  double.parse('${destination['longitude']}'),
+                                );
+                                setState(() => pin = point);
+                                mapController.move(point, 17);
+                              },
+                      );
                     },
                   ),
-                  children: [
-                    TileLayer(
-                      key: ValueKey(satellite),
-                      urlTemplate: satellite
-                          ? 'https://api.maptiler.com/maps/hybrid-v4/{z}/{x}/{y}.png?key=${Uri.encodeQueryComponent(mapTilerKey)}'
-                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.cpsumotorpooladmin',
+                if (mapTilerKey.isNotEmpty)
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Street')),
+                      ButtonSegment(value: true, label: Text('Satellite')),
+                    ],
+                    selected: {satellite},
+                    onSelectionChanged: (selection) =>
+                        setState(() => satellite = selection.single),
+                  ),
+                const Text(
+                  'Use + to see street names, then tap the exact destination.',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: (MediaQuery.sizeOf(context).height * 0.55)
+                      .clamp(230.0, 540.0)
+                      .toDouble(),
+                  child: FlutterMap(
+                    mapController: mapController,
+                    options: MapOptions(
+                      initialCenter: initialPin ?? const LatLng(10.30, 123.00),
+                      initialZoom: initialPin == null ? 10 : 17,
+                      minZoom: 5,
+                      maxZoom: 19,
+                      onTap: (_, position) {
+                        if (!saving) setState(() => pin = position);
+                      },
                     ),
-                    if (pin != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: pin!,
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: Colors.red,
-                              size: 32,
-                            ),
-                          ),
-                        ],
+                    children: [
+                      TileLayer(
+                        key: ValueKey(satellite),
+                        urlTemplate: satellite
+                            ? 'https://api.maptiler.com/maps/hybrid-v4/{z}/{x}/{y}.png?key=${Uri.encodeQueryComponent(mapTilerKey)}'
+                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.cpsumotorpooladmin',
                       ),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ColoredBox(
-                        color: Colors.white,
-                        child: Text(
-                          satellite
-                              ? '© MapTiler © OpenStreetMap contributors'
-                              : '© OpenStreetMap contributors',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Material(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        elevation: 2,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final step in [1.0, -1.0])
-                              IconButton(
-                                tooltip: step > 0 ? 'Zoom in' : 'Zoom out',
-                                icon: Icon(step > 0 ? Icons.add : Icons.remove),
-                                onPressed: () {
-                                  final camera = mapController.camera;
-                                  mapController.move(
-                                    camera.center,
-                                    (camera.zoom + step)
-                                        .clamp(5.0, 19.0)
-                                        .toDouble(),
-                                  );
-                                },
+                      if (pin != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: pin!,
+                              child: const Icon(
+                                Icons.location_pin,
+                                color: Colors.red,
+                                size: 32,
                               ),
+                            ),
                           ],
                         ),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: ColoredBox(
+                          color: Colors.white,
+                          child: Text(
+                            satellite
+                                ? '© MapTiler © OpenStreetMap contributors'
+                                : '© OpenStreetMap contributors',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
                       ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Material(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          elevation: 2,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final step in [1.0, -1.0])
+                                IconButton(
+                                  tooltip: step > 0 ? 'Zoom in' : 'Zoom out',
+                                  icon: Icon(
+                                    step > 0 ? Icons.add : Icons.remove,
+                                  ),
+                                  onPressed: () {
+                                    final camera = mapController.camera;
+                                    mapController.move(
+                                      camera.center,
+                                      (camera.zoom + step)
+                                          .clamp(5.0, 19.0)
+                                          .toDouble(),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (error != null)
+                  Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
                     ),
-                  ],
-                ),
-              ),
-              if (error != null)
-                Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-            ],
+                  ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: saving ? null : () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: saving || pin == null
-                ? null
-                : () async {
-                    final selected = pin!;
-                    setState(() {
-                      saving = true;
-                      error = null;
-                    });
-                    try {
-                      await save(selected);
-                      if (context.mounted) Navigator.pop(context, selected);
-                    } catch (failure) {
-                      if (context.mounted) {
-                        setState(() {
-                          saving = false;
-                          error = failure is DestinationPinException
-                              ? failure.message
-                              : 'Could not save the pin. Check your connection and try again.';
-                        });
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: saving || pin == null
+                  ? null
+                  : () async {
+                      final selected = pin!;
+                      setState(() {
+                        saving = true;
+                        error = null;
+                      });
+                      try {
+                        await save(selected);
+                        if (context.mounted &&
+                            ModalRoute.of(context)?.isCurrent == true) {
+                          Navigator.pop(context, selected);
+                        }
+                      } catch (failure) {
+                        if (context.mounted) {
+                          setState(() {
+                            saving = false;
+                            error = failure is DestinationPinException
+                                ? failure.message
+                                : 'Could not save the pin. Check your connection and try again.';
+                          });
+                        }
                       }
-                    }
-                  },
-            child: Text(saving ? 'Saving…' : 'Save pin'),
-          ),
-        ],
+                    },
+              child: Text(saving ? 'Saving…' : 'Save pin'),
+            ),
+          ],
+        ),
       ),
     ),
   );

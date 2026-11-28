@@ -372,7 +372,9 @@ class _ScheduleTripPageState extends State<ScheduleTripPage>
                 icon: const Icon(Icons.play_arrow_rounded, size: 16),
                 label: const Text('Start Trip'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: canStart ? _green : Colors.grey.shade300,
+                  backgroundColor: _green,
+                  disabledBackgroundColor: AppColors.mint,
+                  disabledForegroundColor: AppColors.primaryDark,
                   foregroundColor: canStart
                       ? Colors.white
                       : Colors.grey.shade700,

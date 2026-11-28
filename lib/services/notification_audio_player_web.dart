@@ -16,9 +16,37 @@ class _WebNotificationAudioPlayer implements NotificationAudioPlayer {
   static final Map<NotificationSound, String> _waveData = {};
 
   final html.AudioElement _audio = html.AudioElement();
+  Future<void>? _priming;
+  bool _playing = false;
+  StreamSubscription<html.MouseEvent>? _clicks;
+
+  _WebNotificationAudioPlayer() {
+    _clicks = html.document.onClick.listen((_) {
+      if (!_playing && _priming == null) {
+        _priming = _enablePlayback().whenComplete(() => _priming = null);
+      }
+    });
+  }
+
+  Future<void> _enablePlayback() async {
+    try {
+      _audio.src = _waveData.putIfAbsent(
+        NotificationSound.scheduledDepartureReminder,
+        () => _createWaveData(NotificationSound.scheduledDepartureReminder),
+      );
+      _audio.volume = 0;
+      await _audio.play();
+      _audio.pause();
+      await _clicks?.cancel();
+    } catch (_) {
+      // Retry on the next user gesture if the browser blocked playback.
+    }
+  }
 
   @override
   Future<void> play(NotificationSound sound, double volume) async {
+    await _priming;
+    _playing = true;
     final audio = _audio
       ..src = _waveData.putIfAbsent(sound, () => _createWaveData(sound))
       ..preload = 'auto'
@@ -31,6 +59,7 @@ class _WebNotificationAudioPlayer implements NotificationAudioPlayer {
         onTimeout: () => html.Event('timeout'),
       );
     } finally {
+      _playing = false;
       audio.pause();
       audio.removeAttribute('src');
       audio.load();

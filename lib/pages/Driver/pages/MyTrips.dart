@@ -522,7 +522,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF0F172A), Color(0xFF334155)],
+                          colors: [AppColors.primaryDark, AppColors.primary],
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         ),
@@ -540,7 +540,7 @@ class _MyTripsPageState extends State<MyTripsPage> with WidgetsBindingObserver {
                       child: TextButton.icon(
                         onPressed: () => _openTripTicket(trip.id),
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 12,

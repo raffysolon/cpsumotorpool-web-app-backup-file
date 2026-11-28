@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cpsumotorpooladmin/widgets/destination_pin_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,6 +13,7 @@ void main() {
     const pin = LatLng(10.5, 123.4);
     LatLng? saved;
     LatLng? returned;
+    final pendingSave = Completer<void>();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -23,6 +26,7 @@ void main() {
                   initialPin: pin,
                   save: (point) async {
                     saved = point;
+                    await pendingSave.future;
                   },
                 );
               },
@@ -38,6 +42,11 @@ void main() {
     await tester.tap(find.text('Save pin'));
     await tester.pump();
     expect(saved, pin);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Saving…'), findsOneWidget);
+    pendingSave.complete();
+    await tester.pump();
     expect(find.byType(FlutterMap), findsOneWidget);
     expect(() => map.mapController!.move(pin, 18), returnsNormally);
     await tester.pumpAndSettle();

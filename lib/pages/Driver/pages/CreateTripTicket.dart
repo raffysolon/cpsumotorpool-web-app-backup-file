@@ -2,6 +2,7 @@ import 'package:cpsumotorpooladmin/widgets/app_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/services/assignment_service.dart';
 import 'package:cpsumotorpooladmin/services/trip_service.dart';
+import 'package:cpsumotorpooladmin/widgets/saved_destination_picker.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
 // === Create trip ticket page: multi-step driver request form ===
@@ -25,6 +26,7 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
   final _formKey = GlobalKey<FormState>();
   final _originController = TextEditingController();
   final _destinationController = TextEditingController();
+  late final _savedDestinations = TripService.getSavedDestinations();
   final _purposeController = TextEditingController();
 
   static const _locations = [
@@ -346,6 +348,10 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         child: Column(
           children: [
             _buildAssignedVehicleField(),
+            SavedDestinationPicker(
+              destinations: _savedDestinations,
+              controller: _destinationController,
+            ),
             _buildResponsiveFields(
               narrow,
               _buildField(

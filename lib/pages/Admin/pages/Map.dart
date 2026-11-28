@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cpsumotorpooladmin/widgets/active_vehicles_map.dart';
 import 'package:cpsumotorpooladmin/widgets/app_shell.dart';
 
+import 'package:cpsumotorpooladmin/widgets/saved_destinations_dialog.dart';
+
 class MapPage extends StatelessWidget {
   const MapPage({super.key});
 
@@ -26,7 +28,18 @@ class MapPage extends StatelessWidget {
                       subtitle:
                           'Vehicle locations, GPS freshness, and tracker heartbeat status',
                     ),
-                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => const SavedDestinationsDialog(),
+                        ),
+                        icon: const Icon(Icons.add_location_alt_outlined),
+                        label: const Text('Saved destinations'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: GlassCard(
                         padding: const EdgeInsets.all(8),
