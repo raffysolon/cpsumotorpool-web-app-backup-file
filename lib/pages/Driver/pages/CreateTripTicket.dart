@@ -26,7 +26,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
   final _formKey = GlobalKey<FormState>();
   final _originController = TextEditingController();
   final _destinationController = TextEditingController();
-  late final _savedDestinations = TripService.getSavedDestinations();
   final _purposeController = TextEditingController();
 
   static const _locations = [
@@ -348,10 +347,6 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
         child: Column(
           children: [
             _buildAssignedVehicleField(),
-            SavedDestinationPicker(
-              destinations: _savedDestinations,
-              controller: _destinationController,
-            ),
             _buildResponsiveFields(
               narrow,
               _buildField(
@@ -360,11 +355,16 @@ class _CreateTripTicketState extends State<CreateTripTicket> {
                 icon: Icons.trip_origin,
                 validator: _required,
               ),
-              _buildField(
-                label: 'Destination',
-                controller: _destinationController,
-                icon: Icons.location_on_outlined,
-                validator: _required,
+              Column(
+                children: [
+                  _buildField(
+                    label: 'Destination',
+                    controller: _destinationController,
+                    icon: Icons.location_on_outlined,
+                    validator: _required,
+                  ),
+                  SavedDestinationPicker(controller: _destinationController),
+                ],
               ),
             ),
             _buildField(

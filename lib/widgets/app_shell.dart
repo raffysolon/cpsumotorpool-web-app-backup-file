@@ -353,70 +353,103 @@ class AppShell extends StatelessWidget {
     if (!persistentHost && (AdminShellScope.of(context)?.hosted ?? false)) {
       return child;
     }
-    return ValueListenableBuilder<bool?>(
-      valueListenable: _collapsed,
-      builder: (context, collapsed, _) => LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 900;
-          final rail = collapsed ?? (constraints.maxWidth < 1180);
+    return _AdminNotificationPolling(
+      child: ValueListenableBuilder<bool?>(
+        valueListenable: _collapsed,
+        builder: (context, collapsed, _) => LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 900;
+            final rail = collapsed ?? (constraints.maxWidth < 1180);
 
-          if (narrow) {
+            if (narrow) {
+              return InteractionLoadingOverlay.coverApp(
+                Scaffold(
+                  backgroundColor: AppColors.background,
+                  appBar: AppBar(
+                    backgroundColor: AppColors.glassFill,
+                    foregroundColor: AppColors.navy,
+                    elevation: 0,
+                    surfaceTintColor: Colors.transparent,
+                    title: Text(
+                      'MotorPool',
+                      style: AppTypography.displayTitle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  drawer: Drawer(
+                    backgroundColor: Colors.transparent,
+                    child: Builder(
+                      builder: (context) => _Sidebar(
+                        currentRoute: currentRoute,
+                        navigatorKey: navigatorKey,
+                        compact: false,
+                        toggleTooltip: 'Close menu',
+                        onToggle: () => Scaffold.of(context).closeDrawer(),
+                      ),
+                    ),
+                  ),
+                  body: _ShellAtmosphere(child: child),
+                ),
+              );
+            }
+
             return InteractionLoadingOverlay.coverApp(
               Scaffold(
                 backgroundColor: AppColors.background,
-                appBar: AppBar(
-                  backgroundColor: AppColors.glassFill,
-                  foregroundColor: AppColors.navy,
-                  elevation: 0,
-                  surfaceTintColor: Colors.transparent,
-                  title: Text(
-                    'MotorPool',
-                    style: AppTypography.displayTitle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
+                body: _ShellAtmosphere(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Sidebar(
+                        currentRoute: currentRoute,
+                        navigatorKey: navigatorKey,
+                        compact: rail,
+                        onToggle: () => _collapsed.value = !rail,
+                      ),
+                      Expanded(child: child),
+                    ],
                   ),
                 ),
-                drawer: Drawer(
-                  backgroundColor: Colors.transparent,
-                  child: Builder(
-                    builder: (context) => _Sidebar(
-                      currentRoute: currentRoute,
-                      navigatorKey: navigatorKey,
-                      compact: false,
-                      toggleTooltip: 'Close menu',
-                      onToggle: () => Scaffold.of(context).closeDrawer(),
-                    ),
-                  ),
-                ),
-                body: _ShellAtmosphere(child: child),
               ),
             );
-          }
-
-          return InteractionLoadingOverlay.coverApp(
-            Scaffold(
-              backgroundColor: AppColors.background,
-              body: _ShellAtmosphere(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Sidebar(
-                      currentRoute: currentRoute,
-                      navigatorKey: navigatorKey,
-                      compact: rail,
-                      onToggle: () => _collapsed.value = !rail,
-                    ),
-                    Expanded(child: child),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
+}
+
+class _AdminNotificationPolling extends StatefulWidget {
+  const _AdminNotificationPolling({required this.child});
+  final Widget child;
+  @override
+  State<_AdminNotificationPolling> createState() =>
+      _AdminNotificationPollingState();
+}
+
+class _AdminNotificationPollingState extends State<_AdminNotificationPolling> {
+  late final Timer _timer;
+  @override
+  void initState() {
+    super.initState();
+    final controller = AdminNotificationsController.instance;
+    unawaited(controller.refresh());
+    _timer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => controller.refresh(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 // ─── Sidebar Navigation ───
@@ -446,7 +479,6 @@ class _SidebarState extends State<_Sidebar> {
   Timer? _refreshTimer;
   bool _isPageVisible = true;
   bool _isTripCountsRefreshing = false;
-  bool _isNotificationRefreshRunning = false;
   late final _SidebarLifecycleObserver _lifecycleObserver;
 
   @override
@@ -456,7 +488,6 @@ class _SidebarState extends State<_Sidebar> {
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
     _loadName();
     _loadTripCounts();
-    _refreshNotificationBell(background: true);
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted ||
           !_isPageVisible ||
@@ -465,9 +496,6 @@ class _SidebarState extends State<_Sidebar> {
       }
       if (!_isTripCountsRefreshing) {
         _loadTripCounts(background: true);
-      }
-      if (!_isNotificationRefreshRunning) {
-        _refreshNotificationBell(background: true);
       }
     });
   }
@@ -486,30 +514,10 @@ class _SidebarState extends State<_Sidebar> {
       if (!_isTripCountsRefreshing) {
         _loadTripCounts(background: true);
       }
-      if (!_isNotificationRefreshRunning) {
-        _refreshNotificationBell(background: true);
-      }
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _isPageVisible = false;
-    }
-  }
-
-  Future<void> _refreshNotificationBell({bool background = false}) async {
-    if (background) {
-      if (_isNotificationRefreshRunning) return;
-      _isNotificationRefreshRunning = true;
-    }
-
-    try {
-      await AdminNotificationsController.instance.refresh();
-    } catch (_) {
-      if (background) return;
-    } finally {
-      if (background) {
-        _isNotificationRefreshRunning = false;
-      }
     }
   }
 
