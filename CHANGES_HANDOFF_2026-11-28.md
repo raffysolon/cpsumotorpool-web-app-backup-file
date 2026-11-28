@@ -2,7 +2,17 @@
 
 Team handoff for the admin web app, driver web app, driver mobile app, Laravel backend, and tracking hardware. Dates follow Philippine time.
 
-## GitHub release references
+## Review these revisions
+
+All three commits below were verified on GitHub `main`. Use the comparison links to review the feature changes even if `main` moves later.
+
+| Repository | Verified head | Feature comparison |
+|---|---|---|
+| Admin and driver web | [`8c40114`](https://github.com/raffysolon/cpsumotorpool-web-app-backup-file/commit/8c401140866a5b48f971b0916177ffb50ae98da3) | [`b3337e1...8c40114`](https://github.com/raffysolon/cpsumotorpool-web-app-backup-file/compare/b3337e1...8c40114) |
+| Laravel backend | [`2f7df48`](https://github.com/raffysolon/cpsu-motorpool-backend/commit/2f7df4814cef523f769f296d06df5c2c17eb550e) | [`5f7e16c...2f7df48`](https://github.com/raffysolon/cpsu-motorpool-backend/compare/5f7e16c...2f7df48) |
+| Driver mobile app | [`9efd726`](https://github.com/raffysolon/cpsu-motorpool-driver-app/commit/9efd7263aefc22befb58274056184fecc122f71b) | [`53e25d9...9efd726`](https://github.com/raffysolon/cpsu-motorpool-driver-app/compare/53e25d9...9efd726) |
+
+### Earlier changes on November 28
 
 | Repository | Earlier changes published today | Reference commit |
 |---|---|---|
@@ -33,17 +43,37 @@ Team handoff for the admin web app, driver web app, driver mobile app, Laravel b
 - Completed admin-created trip tickets move into **Trip History** and carry a **Created by Admin** indicator.
 - **Trip History → View Details** shows the actual GPS route, including points uploaded after completion. It separates outbound and return legs and breaks the line across gaps longer than two minutes.
 - The **Trip Activity Timeline** records people and timestamps for trip creation, admin decisions, outbound and return travel, and completion. Older trips show available timestamps and identify missing actors or decision times.
-- The backend trip ticket PDF uses **10 mm left and right margins**, 8 mm at the top, and 15 mm at the bottom on **8.5 × 13 inch** long bond paper.
+- The backend trip ticket PDF uses **12 mm left and right margins**, 8 mm at the top, and 15 mm at the bottom on **8.5 × 13 inch** long bond paper.
 
 ## Hardware and ETA
 
-The web repository also received the bench firmware and gateway files. For paired installation, use the vehicle sketch, admin receiver sketch, and Raspberry Pi gateway together. The vehicle attempts an LTE heartbeat about every 60 seconds when connectivity, time, and credentials are available. GPS capture starts after a valid fix and time. LoRa recovery uses the admin-side Pi to forward buffered GPS records. The vehicle advances to its next pending record after cloud confirmation, which limits backlog transfer while the Pi is offline. [Hardware branch and setup instructions](https://github.com/raffysolon/cpsu-motorpool-backend/tree/hardware/hardware)
+The vehicle attempts an LTE heartbeat about every 60 seconds when connectivity, time, and credentials are available. GPS capture starts after a valid fix and time. LoRa recovery uses the admin-side Pi to forward buffered GPS records. The vehicle advances to its next pending record after cloud confirmation, which limits backlog transfer while the Pi is offline. The gateway with Sync Logs reporting is in the web repository's verified commit. [Updated gateway and setup instructions](https://github.com/raffysolon/cpsumotorpool-web-app-backup-file/tree/8c40114/hardware/gateway)
 
 The admin map shows heartbeat receipt time and the latest GPS capture time separately. The **Tracker status** list includes devices without a GPS fix. Select an active vehicle marker to view its outbound ETA or set a missing destination pin.
 
 Road ETA requires `OSRM_BASE_URL` in the Laravel environment and a routing service that covers the trip area. Return-leg ETA and firmware-level recording controlled by the driver's Start Trip action are still pending.
 
-Run the backend migrations before releasing the updated web and mobile apps. Install the updated [gateway script](hardware/gateway/gateway.py) on the Raspberry Pi to enable transfer reports.
+Run the backend migrations before releasing the updated web and mobile apps. The Render deployment script runs `php artisan migrate --force`. Confirm that migrations `000003`, `000004`, and `000005` succeeded. Install the updated [gateway script](hardware/gateway/gateway.py) on the Raspberry Pi to enable transfer reports. Keep the Pi's existing SQLite queue and gateway credential during the update.
+
+## Code entry points for review
+
+| Feature | Backend | Web, mobile, or gateway |
+|---|---|---|
+| Recorded route | `GpsLocationController.php` → `recordedRoute`, `GET /api/trips/{trip}/recorded-route` | `lib/pages/Admin/pages/TripHistory.dart`, `lib/widgets/recorded_trip_route.dart` |
+| Outbound ETA | `GpsLocationController.php` → `tripEta`, `GET /api/trips/{trip}/eta` | `lib/widgets/active_vehicles_map.dart`, `lib/widgets/active_trip_eta.dart` |
+| Booking limits | `TripController.php` → request, approval, schedule edit, and start guards, with `scheduled_end_at` on trips | Web `lib/pages/Driver/pages/CreateTripTicket.dart`, mobile `lib/pages/create_trip_ticket.dart` |
+| Separate heartbeat and GPS times | Device Registry provides `last_heartbeat_received_at` and the latest GPS endpoint provides `recorded_at` | `lib/services/gps_service.dart`, `lib/widgets/active_vehicles_map.dart` |
+| Gateway transfer status | `GatewaySyncStatusController.php`, `POST /api/gps/sync-status`, and `GET /api/gps/sync-logs?summary=1` | `hardware/gateway/gateway.py`, `lib/services/gps_sync_service.dart`, `lib/pages/Admin/pages/SnycLogs.dart` |
+| Trip activity | `TripActivity.php`, lifecycle writes in `TripController.php`, and `GET /api/trips/{trip}/activity` | `lib/widgets/trip_activity_timeline.dart`, `lib/pages/Admin/pages/TripHistory.dart` |
+
+## Review scenarios
+
+1. **Booking.** Approve tomorrow's trip, then submit a non-overlapping trip for today. Try a second pending request, a trip during the overnight return window, and another start while yesterday's trip is still active.
+2. **Route and timeline.** Complete a round trip. Upload GPS points captured during the trip after it closes and check that the route uses capture time, skips another vehicle's points, and keeps the two legs separate. Check that the timeline records the acting user and labels missing legacy details.
+3. **ETA and tracker status.** Start a trip with a custom destination and no saved pin. Set the pin from the admin map and check the ETA with a configured routing service. Stop GPS updates while keeping heartbeat active and check the two timestamps separately. The ETA estimates remaining road travel time using recent GPS.
+4. **Gateway recovery.** With test data, disconnect the Pi from the internet while it receives GPS records. Confirm the records stay queued locally, then restore the connection and verify that the backend's acknowledgment is required before **Uploaded** appears. The status describes the Pi queue. The number of records still on the vehicle SD card remains unknown.
+
+Ask the reviewer to flag reproducible defects, affected files, deployment prerequisites, and behaviors that still need physical or production verification. Use a local test database and synthetic GPS points for review.
 
 ## Verification and outstanding checks
 
@@ -51,7 +81,7 @@ Run the backend migrations before releasing the updated web and mobile apps. Ins
 |---|---|
 | Earlier full-suite run | 124 web, 121 backend, and 7 mobile tests passed before the final UI and polling edits. |
 | Focused follow-up tests | The map dialog regression passed. Saved destination tests passed with 15 assertions, including a driver submitting a differently capitalized saved name and a custom destination. The admin shell and sound run passed all 11 tests. |
-| Latest feature tests | The full Laravel suite passed 129 tests. Focused Flutter tests passed for the timeline, Sync Logs, tracker status, and ETA. The Pi gateway passed 4 local Python tests. |
+| Latest feature tests | The full Laravel suite passed 129 tests. Focused Flutter tests passed for the timeline, Sync Logs, tracker status, and ETA. The Pi gateway passed 4 local Python tests. The web release build completed with the existing WebAssembly compatibility warning. |
 | Production | Render migration completion, Vercel production behavior, and the updated mobile and Pi installations still need confirmation. |
 | Physical hardware | Flash and bench-test both Heltec boards. Check repeated SD writes beyond the previously observed six records, a fresh GPS timestamp, LTE heartbeat, and LoRa recovery without duplicate database rows. |
 
